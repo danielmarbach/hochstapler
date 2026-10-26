@@ -1,0 +1,2706 @@
+{
+  "id": "fxdivrun",
+  "version": 189,
+  "status": "running",
+  "settings": {
+    "themeId": "fr",
+    "startingCash": 2000,
+    "goSalary": 200,
+    "doubleOnGoLanding": false,
+    "turnTimeoutSec": 60,
+    "awayAfterMissedTurns": 2,
+    "auctions": true,
+    "freeParkingJackpot": false,
+    "evenBuild": true,
+    "buildingLimits": {
+      "houses": 48,
+      "hotels": 16,
+      "skyscrapers": 8
+    },
+    "maxRounds": 0,
+    "securities": true,
+    "securitiesLockRounds": 2,
+    "securitiesDividends": true
+  },
+  "players": [
+    {
+      "id": "p1",
+      "name": "Anna",
+      "color": "#e74c3c",
+      "tokenId": "eiffel",
+      "controller": "bot",
+      "botLevel": "normal",
+      "cash": 291,
+      "position": 36,
+      "inJail": false,
+      "jailTurns": 0,
+      "jailCards": [],
+      "bankrupt": false,
+      "missedTurns": 0,
+      "holdings": [
+        {
+          "secId": "fr-haussmann",
+          "shares": 2,
+          "buyPrice": 130,
+          "boughtRound": 1
+        },
+        {
+          "secId": "fr-sncf",
+          "shares": 5,
+          "buyPrice": 35,
+          "boughtRound": 2
+        },
+        {
+          "secId": "fr-camembert",
+          "shares": 2,
+          "buyPrice": 58,
+          "boughtRound": 3
+        },
+        {
+          "secId": "fr-sncf",
+          "shares": 1,
+          "buyPrice": 35,
+          "boughtRound": 4
+        },
+        {
+          "secId": "fr-sncf",
+          "shares": 1,
+          "buyPrice": 35,
+          "boughtRound": 6
+        }
+      ],
+      "dividends": 121
+    },
+    {
+      "id": "p2",
+      "name": "Ben",
+      "color": "#3498db",
+      "tokenId": "baguette",
+      "controller": "bot",
+      "botLevel": "hard",
+      "cash": 194,
+      "position": 13,
+      "inJail": true,
+      "jailTurns": 0,
+      "jailCards": [],
+      "bankrupt": false,
+      "missedTurns": 0,
+      "holdings": [
+        {
+          "secId": "fr-haussmann",
+          "shares": 1,
+          "buyPrice": 130,
+          "boughtRound": 1
+        },
+        {
+          "secId": "fr-sncf",
+          "shares": 8,
+          "buyPrice": 35,
+          "boughtRound": 2
+        },
+        {
+          "secId": "fr-camembert",
+          "shares": 4,
+          "buyPrice": 58,
+          "boughtRound": 3
+        },
+        {
+          "secId": "fr-sncf",
+          "shares": 1,
+          "buyPrice": 35,
+          "boughtRound": 4
+        }
+      ],
+      "dividends": 136
+    },
+    {
+      "id": "p3",
+      "name": "Clara",
+      "color": "#2ecc71",
+      "tokenId": "croissant",
+      "controller": "bot",
+      "botLevel": "easy",
+      "cash": 380,
+      "position": 33,
+      "inJail": false,
+      "jailTurns": 0,
+      "jailCards": [],
+      "bankrupt": false,
+      "missedTurns": 0,
+      "holdings": [
+        {
+          "secId": "fr-eiffel",
+          "shares": 2,
+          "buyPrice": 90,
+          "boughtRound": 1
+        },
+        {
+          "secId": "fr-sncf",
+          "shares": 5,
+          "buyPrice": 35,
+          "boughtRound": 2
+        },
+        {
+          "secId": "fr-camembert",
+          "shares": 2,
+          "buyPrice": 58,
+          "boughtRound": 3
+        },
+        {
+          "secId": "fr-cafe",
+          "shares": 1,
+          "buyPrice": 90,
+          "boughtRound": 4
+        },
+        {
+          "secId": "fr-cafe",
+          "shares": 1,
+          "buyPrice": 86,
+          "boughtRound": 5
+        },
+        {
+          "secId": "fr-camembert",
+          "shares": 1,
+          "buyPrice": 59,
+          "boughtRound": 6
+        }
+      ],
+      "dividends": 72
+    }
+  ],
+  "current": 0,
+  "round": 12,
+  "phase": {
+    "type": "await-roll"
+  },
+  "properties": {
+    "1": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "3": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "5": {
+      "owner": "p3",
+      "level": 0,
+      "mortgaged": false
+    },
+    "6": {
+      "owner": "p3",
+      "level": 0,
+      "mortgaged": false
+    },
+    "8": {
+      "owner": "p1",
+      "level": 0,
+      "mortgaged": false
+    },
+    "9": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "10": {
+      "owner": "p1",
+      "level": 0,
+      "mortgaged": false
+    },
+    "11": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "12": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "14": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "15": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "16": {
+      "owner": "p2",
+      "level": 0,
+      "mortgaged": false
+    },
+    "17": {
+      "owner": "p1",
+      "level": 0,
+      "mortgaged": false
+    },
+    "18": {
+      "owner": "p2",
+      "level": 0,
+      "mortgaged": false
+    },
+    "19": {
+      "owner": "p2",
+      "level": 0,
+      "mortgaged": false
+    },
+    "20": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "22": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "23": {
+      "owner": "p2",
+      "level": 0,
+      "mortgaged": false
+    },
+    "25": {
+      "owner": "p2",
+      "level": 0,
+      "mortgaged": false
+    },
+    "27": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "29": {
+      "owner": "p3",
+      "level": 0,
+      "mortgaged": false
+    },
+    "30": {
+      "owner": "p2",
+      "level": 0,
+      "mortgaged": false
+    },
+    "31": {
+      "owner": "p1",
+      "level": 0,
+      "mortgaged": false
+    },
+    "32": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "33": {
+      "owner": "p1",
+      "level": 0,
+      "mortgaged": false
+    },
+    "34": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "35": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "36": {
+      "owner": "p1",
+      "level": 0,
+      "mortgaged": false
+    },
+    "38": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "40": {
+      "owner": "p3",
+      "level": 0,
+      "mortgaged": false
+    },
+    "41": {
+      "owner": "p3",
+      "level": 0,
+      "mortgaged": false
+    },
+    "42": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "43": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "44": {
+      "owner": "p1",
+      "level": 0,
+      "mortgaged": false
+    },
+    "46": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "47": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "48": {
+      "owner": null,
+      "level": 0,
+      "mortgaged": false
+    },
+    "50": {
+      "owner": "p3",
+      "level": 0,
+      "mortgaged": false
+    },
+    "51": {
+      "owner": "p2",
+      "level": 0,
+      "mortgaged": false
+    }
+  },
+  "dice": null,
+  "doublesCount": 0,
+  "decks": {
+    "chance": [
+      "ch-nearest-station",
+      "ch-chairman",
+      "ch-jail-card",
+      "ch-nearest-utility",
+      "ch-dividend",
+      "ch-go",
+      "ch-nearest-station-2",
+      "ch-station-1",
+      "ch-back-3",
+      "ch-repairs",
+      "ch-g3-first",
+      "ch-g6-first",
+      "ch-g9-last",
+      "ch-loan",
+      "ch-speeding",
+      "ch-jail"
+    ],
+    "community": [
+      "cc-bank-error",
+      "cc-street-repairs",
+      "cc-jail",
+      "cc-tax-refund",
+      "cc-beauty",
+      "cc-hospital",
+      "cc-inherit",
+      "cc-birthday",
+      "cc-doctor",
+      "cc-holiday",
+      "cc-jail-card",
+      "cc-insurance",
+      "cc-stock",
+      "cc-go",
+      "cc-school",
+      "cc-consultancy"
+    ]
+  },
+  "bank": {
+    "houses": 48,
+    "hotels": 16,
+    "skyscrapers": 8
+  },
+  "market": {
+    "prices": {
+      "fr-eiffel": 81,
+      "fr-camembert": 56,
+      "fr-sncf": 36,
+      "fr-credit": 105,
+      "fr-cafe": 99,
+      "fr-haussmann": 131
+    },
+    "history": {
+      "fr-eiffel": [90, 87, 86, 84, 81, 79, 78, 80, 82, 83, 83, 81],
+      "fr-camembert": [55, 57, 58, 58, 59, 59, 59, 59, 59, 59, 58, 56],
+      "fr-sncf": [35, 35, 34, 35, 34, 35, 34, 35, 36, 37, 36, 36],
+      "fr-credit": [110, 110, 108, 108, 106, 106, 105, 106, 105, 104, 103, 105],
+      "fr-cafe": [95, 98, 94, 90, 86, 89, 88, 88, 82, 84, 90, 99],
+      "fr-haussmann": [130, 132, 132, 132, 130, 131, 130, 128, 129, 131, 131, 131]
+    },
+    "activity": {
+      "builds": 0,
+      "scenicBuilds": 0,
+      "rentPaid": 0,
+      "stationRents": 0,
+      "utilityRents": 0,
+      "bankruptcies": 0
+    }
+  },
+  "freeParkingPot": 0,
+  "trades": [],
+  "deadline": null,
+  "rng": 1722591058,
+  "log": [
+    {
+      "at": 1760000017000,
+      "text": "Ben zieht eine Karte (ch-loan).",
+      "msg": {
+        "key": "log.cardDrawn",
+        "params": {
+          "player": "p2",
+          "card": "ch-loan"
+        }
+      }
+    },
+    {
+      "at": 1760000018000,
+      "text": "Ben kauft 8 × SNCF Retards & Cie für 280.",
+      "msg": {
+        "key": "log.secBought",
+        "params": {
+          "player": "p2",
+          "shares": 8,
+          "security": "fr-sncf",
+          "amount": 280
+        }
+      }
+    },
+    {
+      "at": 1760000020000,
+      "text": "Clara würfelt 2+1.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p3",
+          "a": 2,
+          "b": 1
+        }
+      }
+    },
+    {
+      "at": 1760000020000,
+      "text": "Clara zahlt 4 Miete an Anna (Feld 8).",
+      "msg": {
+        "key": "log.rentPaid",
+        "params": {
+          "player": "p3",
+          "amount": 4,
+          "owner": "p1",
+          "tile": 8
+        }
+      }
+    },
+    {
+      "at": 1760000021000,
+      "text": "Clara kauft 5 × SNCF Retards & Cie für 175.",
+      "msg": {
+        "key": "log.secBought",
+        "params": {
+          "player": "p3",
+          "shares": 5,
+          "security": "fr-sncf",
+          "amount": 175
+        }
+      }
+    },
+    {
+      "at": 1760000022000,
+      "text": "Anna erhält 10 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p1",
+          "amount": 10
+        }
+      }
+    },
+    {
+      "at": 1760000022000,
+      "text": "Ben erhält 10 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p2",
+          "amount": 10
+        }
+      }
+    },
+    {
+      "at": 1760000022000,
+      "text": "Clara erhält 5 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p3",
+          "amount": 5
+        }
+      }
+    },
+    {
+      "at": 1760000023000,
+      "text": "Anna würfelt 2+2 (Pasch).",
+      "msg": {
+        "key": "log.rolledDoubles",
+        "params": {
+          "player": "p1",
+          "a": 2,
+          "b": 2
+        }
+      }
+    },
+    {
+      "at": 1760000023000,
+      "text": "Anna zieht eine Karte (cc-school).",
+      "msg": {
+        "key": "log.cardDrawn",
+        "params": {
+          "player": "p1",
+          "card": "cc-school"
+        }
+      }
+    },
+    {
+      "at": 1760000024000,
+      "text": "Anna kauft 2 × Camembert & Fils SA für 116.",
+      "msg": {
+        "key": "log.secBought",
+        "params": {
+          "player": "p1",
+          "shares": 2,
+          "security": "fr-camembert",
+          "amount": 116
+        }
+      }
+    },
+    {
+      "at": 1760000025000,
+      "text": "Anna würfelt 5+2.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p1",
+          "a": 5,
+          "b": 2
+        }
+      }
+    },
+    {
+      "at": 1760000025000,
+      "text": "Anna zieht eine Karte (ch-speeding).",
+      "msg": {
+        "key": "log.cardDrawn",
+        "params": {
+          "player": "p1",
+          "card": "ch-speeding"
+        }
+      }
+    },
+    {
+      "at": 1760000027000,
+      "text": "Ben würfelt 5+5 (Pasch).",
+      "msg": {
+        "key": "log.rolledDoubles",
+        "params": {
+          "player": "p2",
+          "a": 5,
+          "b": 5
+        }
+      }
+    },
+    {
+      "at": 1760000027000,
+      "text": "Ben zahlt 8 Miete an Anna (Feld 17).",
+      "msg": {
+        "key": "log.rentPaid",
+        "params": {
+          "player": "p2",
+          "amount": 8,
+          "owner": "p1",
+          "tile": 17
+        }
+      }
+    },
+    {
+      "at": 1760000028000,
+      "text": "Ben kauft 4 × Camembert & Fils SA für 232.",
+      "msg": {
+        "key": "log.secBought",
+        "params": {
+          "player": "p2",
+          "shares": 4,
+          "security": "fr-camembert",
+          "amount": 232
+        }
+      }
+    },
+    {
+      "at": 1760000029000,
+      "text": "Ben würfelt 2+6.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p2",
+          "a": 2,
+          "b": 6
+        }
+      }
+    },
+    {
+      "at": 1760000030000,
+      "text": "Ben kauft Feld 25 für 240.",
+      "msg": {
+        "key": "log.bought",
+        "params": {
+          "player": "p2",
+          "tile": 25,
+          "amount": 240
+        }
+      }
+    },
+    {
+      "at": 1760000032000,
+      "text": "Clara würfelt 4+1.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p3",
+          "a": 4,
+          "b": 1
+        }
+      }
+    },
+    {
+      "at": 1760000033000,
+      "text": "Clara kauft 2 × Camembert & Fils SA für 116.",
+      "msg": {
+        "key": "log.secBought",
+        "params": {
+          "player": "p3",
+          "shares": 2,
+          "security": "fr-camembert",
+          "amount": 116
+        }
+      }
+    },
+    {
+      "at": 1760000034000,
+      "text": "Anna erhält 11 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p1",
+          "amount": 11
+        }
+      }
+    },
+    {
+      "at": 1760000034000,
+      "text": "Ben erhält 13 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p2",
+          "amount": 13
+        }
+      }
+    },
+    {
+      "at": 1760000034000,
+      "text": "Clara erhält 6 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p3",
+          "amount": 6
+        }
+      }
+    },
+    {
+      "at": 1760000035000,
+      "text": "Anna würfelt 2+6.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p1",
+          "a": 2,
+          "b": 6
+        }
+      }
+    },
+    {
+      "at": 1760000036000,
+      "text": "Anna kauft Feld 36 für 320.",
+      "msg": {
+        "key": "log.bought",
+        "params": {
+          "player": "p1",
+          "tile": 36,
+          "amount": 320
+        }
+      }
+    },
+    {
+      "at": 1760000037000,
+      "text": "Anna kauft 1 × SNCF Retards & Cie für 35.",
+      "msg": {
+        "key": "log.secBought",
+        "params": {
+          "player": "p1",
+          "shares": 1,
+          "security": "fr-sncf",
+          "amount": 35
+        }
+      }
+    },
+    {
+      "at": 1760000039000,
+      "text": "Ben würfelt 1+4.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p2",
+          "a": 1,
+          "b": 4
+        }
+      }
+    },
+    {
+      "at": 1760000040000,
+      "text": "Ben kauft Feld 30 für 260.",
+      "msg": {
+        "key": "log.bought",
+        "params": {
+          "player": "p2",
+          "tile": 30,
+          "amount": 260
+        }
+      }
+    },
+    {
+      "at": 1760000041000,
+      "text": "Ben kauft 1 × SNCF Retards & Cie für 35.",
+      "msg": {
+        "key": "log.secBought",
+        "params": {
+          "player": "p2",
+          "shares": 1,
+          "security": "fr-sncf",
+          "amount": 35
+        }
+      }
+    },
+    {
+      "at": 1760000043000,
+      "text": "Clara würfelt 2+3.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p3",
+          "a": 2,
+          "b": 3
+        }
+      }
+    },
+    {
+      "at": 1760000044000,
+      "text": "Versteigerung von Feld 18.",
+      "msg": {
+        "key": "log.auctionStart",
+        "params": {
+          "tile": 18
+        }
+      }
+    },
+    {
+      "at": 1760000045000,
+      "text": "Anna bietet 60.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 60
+        }
+      }
+    },
+    {
+      "at": 1760000046000,
+      "text": "Ben bietet 80.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 80
+        }
+      }
+    },
+    {
+      "at": 1760000047000,
+      "text": "Clara bietet 100.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 100
+        }
+      }
+    },
+    {
+      "at": 1760000048000,
+      "text": "Anna bietet 120.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 120
+        }
+      }
+    },
+    {
+      "at": 1760000049000,
+      "text": "Ben bietet 140.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 140
+        }
+      }
+    },
+    {
+      "at": 1760000050000,
+      "text": "Clara bietet 160.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 160
+        }
+      }
+    },
+    {
+      "at": 1760000051000,
+      "text": "Anna bietet 180.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 180
+        }
+      }
+    },
+    {
+      "at": 1760000052000,
+      "text": "Ben bietet 200.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 200
+        }
+      }
+    },
+    {
+      "at": 1760000053000,
+      "text": "Clara passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p3"
+        }
+      }
+    },
+    {
+      "at": 1760000054000,
+      "text": "Anna passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p1"
+        }
+      }
+    },
+    {
+      "at": 1760000054000,
+      "text": "Ben gewinnt Feld 18 für 200.",
+      "msg": {
+        "key": "log.auctionWon",
+        "params": {
+          "player": "p2",
+          "tile": 18,
+          "amount": 200
+        }
+      }
+    },
+    {
+      "at": 1760000055000,
+      "text": "Clara kauft 1 × Crypto-Café Montmartre für 90.",
+      "msg": {
+        "key": "log.secBought",
+        "params": {
+          "player": "p3",
+          "shares": 1,
+          "security": "fr-cafe",
+          "amount": 90
+        }
+      }
+    },
+    {
+      "at": 1760000056000,
+      "text": "Anna erhält 12 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p1",
+          "amount": 12
+        }
+      }
+    },
+    {
+      "at": 1760000056000,
+      "text": "Ben erhält 14 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p2",
+          "amount": 14
+        }
+      }
+    },
+    {
+      "at": 1760000056000,
+      "text": "Clara erhält 7 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p3",
+          "amount": 7
+        }
+      }
+    },
+    {
+      "at": 1760000057000,
+      "text": "Anna würfelt 6+2.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p1",
+          "a": 6,
+          "b": 2
+        }
+      }
+    },
+    {
+      "at": 1760000058000,
+      "text": "Anna kauft Feld 44 für 200.",
+      "msg": {
+        "key": "log.bought",
+        "params": {
+          "player": "p1",
+          "tile": 44,
+          "amount": 200
+        }
+      }
+    },
+    {
+      "at": 1760000060000,
+      "text": "Ben würfelt 5+4.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p2",
+          "a": 5,
+          "b": 4
+        }
+      }
+    },
+    {
+      "at": 1760000060000,
+      "text": "Ben fliegt auf und landet in der U-Haft.",
+      "msg": {
+        "key": "log.goToJail",
+        "params": {
+          "player": "p2"
+        }
+      }
+    },
+    {
+      "at": 1760000062000,
+      "text": "Clara würfelt 2+3.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p3",
+          "a": 2,
+          "b": 3
+        }
+      }
+    },
+    {
+      "at": 1760000063000,
+      "text": "Versteigerung von Feld 23.",
+      "msg": {
+        "key": "log.auctionStart",
+        "params": {
+          "tile": 23
+        }
+      }
+    },
+    {
+      "at": 1760000064000,
+      "text": "Anna bietet 60.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 60
+        }
+      }
+    },
+    {
+      "at": 1760000065000,
+      "text": "Ben bietet 80.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 80
+        }
+      }
+    },
+    {
+      "at": 1760000066000,
+      "text": "Clara bietet 100.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 100
+        }
+      }
+    },
+    {
+      "at": 1760000067000,
+      "text": "Anna bietet 120.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 120
+        }
+      }
+    },
+    {
+      "at": 1760000068000,
+      "text": "Ben bietet 140.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 140
+        }
+      }
+    },
+    {
+      "at": 1760000069000,
+      "text": "Clara bietet 160.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 160
+        }
+      }
+    },
+    {
+      "at": 1760000070000,
+      "text": "Anna bietet 180.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 180
+        }
+      }
+    },
+    {
+      "at": 1760000071000,
+      "text": "Ben bietet 200.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 200
+        }
+      }
+    },
+    {
+      "at": 1760000072000,
+      "text": "Clara passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p3"
+        }
+      }
+    },
+    {
+      "at": 1760000073000,
+      "text": "Anna bietet 220.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 220
+        }
+      }
+    },
+    {
+      "at": 1760000074000,
+      "text": "Ben bietet 240.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 240
+        }
+      }
+    },
+    {
+      "at": 1760000075000,
+      "text": "Anna passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p1"
+        }
+      }
+    },
+    {
+      "at": 1760000075000,
+      "text": "Ben gewinnt Feld 23 für 240.",
+      "msg": {
+        "key": "log.auctionWon",
+        "params": {
+          "player": "p2",
+          "tile": 23,
+          "amount": 240
+        }
+      }
+    },
+    {
+      "at": 1760000076000,
+      "text": "Clara kauft 1 × Crypto-Café Montmartre für 86.",
+      "msg": {
+        "key": "log.secBought",
+        "params": {
+          "player": "p3",
+          "shares": 1,
+          "security": "fr-cafe",
+          "amount": 86
+        }
+      }
+    },
+    {
+      "at": 1760000077000,
+      "text": "Anna erhält 11 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p1",
+          "amount": 11
+        }
+      }
+    },
+    {
+      "at": 1760000077000,
+      "text": "Ben erhält 13 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p2",
+          "amount": 13
+        }
+      }
+    },
+    {
+      "at": 1760000077000,
+      "text": "Clara erhält 6 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p3",
+          "amount": 6
+        }
+      }
+    },
+    {
+      "at": 1760000078000,
+      "text": "Anna würfelt 2+6.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p1",
+          "a": 2,
+          "b": 6
+        }
+      }
+    },
+    {
+      "at": 1760000078000,
+      "text": "Anna kassiert 200 für einen weiteren Abflug.",
+      "msg": {
+        "key": "log.goSalary",
+        "params": {
+          "player": "p1",
+          "amount": 200
+        }
+      }
+    },
+    {
+      "at": 1760000079000,
+      "text": "Anna kauft 1 × SNCF Retards & Cie für 35.",
+      "msg": {
+        "key": "log.secBought",
+        "params": {
+          "player": "p1",
+          "shares": 1,
+          "security": "fr-sncf",
+          "amount": 35
+        }
+      }
+    },
+    {
+      "at": 1760000082000,
+      "text": "Ben würfelt 6+4.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p2",
+          "a": 6,
+          "b": 4
+        }
+      }
+    },
+    {
+      "at": 1760000084000,
+      "text": "Clara würfelt 4+4 (Pasch).",
+      "msg": {
+        "key": "log.rolledDoubles",
+        "params": {
+          "player": "p3",
+          "a": 4,
+          "b": 4
+        }
+      }
+    },
+    {
+      "at": 1760000085000,
+      "text": "Versteigerung von Feld 31.",
+      "msg": {
+        "key": "log.auctionStart",
+        "params": {
+          "tile": 31
+        }
+      }
+    },
+    {
+      "at": 1760000086000,
+      "text": "Anna bietet 80.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 80
+        }
+      }
+    },
+    {
+      "at": 1760000087000,
+      "text": "Ben bietet 110.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 110
+        }
+      }
+    },
+    {
+      "at": 1760000088000,
+      "text": "Clara bietet 140.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 140
+        }
+      }
+    },
+    {
+      "at": 1760000089000,
+      "text": "Anna bietet 170.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 170
+        }
+      }
+    },
+    {
+      "at": 1760000090000,
+      "text": "Ben bietet 200.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 200
+        }
+      }
+    },
+    {
+      "at": 1760000091000,
+      "text": "Clara passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p3"
+        }
+      }
+    },
+    {
+      "at": 1760000092000,
+      "text": "Anna bietet 230.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 230
+        }
+      }
+    },
+    {
+      "at": 1760000093000,
+      "text": "Ben passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p2"
+        }
+      }
+    },
+    {
+      "at": 1760000093000,
+      "text": "Anna gewinnt Feld 31 für 230.",
+      "msg": {
+        "key": "log.auctionWon",
+        "params": {
+          "player": "p1",
+          "tile": 31,
+          "amount": 230
+        }
+      }
+    },
+    {
+      "at": 1760000094000,
+      "text": "Clara kauft 1 × Camembert & Fils SA für 59.",
+      "msg": {
+        "key": "log.secBought",
+        "params": {
+          "player": "p3",
+          "shares": 1,
+          "security": "fr-camembert",
+          "amount": 59
+        }
+      }
+    },
+    {
+      "at": 1760000095000,
+      "text": "Clara würfelt 1+1 (Pasch).",
+      "msg": {
+        "key": "log.rolledDoubles",
+        "params": {
+          "player": "p3",
+          "a": 1,
+          "b": 1
+        }
+      }
+    },
+    {
+      "at": 1760000096000,
+      "text": "Versteigerung von Feld 33.",
+      "msg": {
+        "key": "log.auctionStart",
+        "params": {
+          "tile": 33
+        }
+      }
+    },
+    {
+      "at": 1760000097000,
+      "text": "Anna bietet 80.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 80
+        }
+      }
+    },
+    {
+      "at": 1760000098000,
+      "text": "Ben bietet 110.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 110
+        }
+      }
+    },
+    {
+      "at": 1760000099000,
+      "text": "Clara bietet 140.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 140
+        }
+      }
+    },
+    {
+      "at": 1760000100000,
+      "text": "Anna bietet 170.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 170
+        }
+      }
+    },
+    {
+      "at": 1760000101000,
+      "text": "Ben bietet 200.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 200
+        }
+      }
+    },
+    {
+      "at": 1760000102000,
+      "text": "Clara passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p3"
+        }
+      }
+    },
+    {
+      "at": 1760000103000,
+      "text": "Anna bietet 230.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 230
+        }
+      }
+    },
+    {
+      "at": 1760000104000,
+      "text": "Ben passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p2"
+        }
+      }
+    },
+    {
+      "at": 1760000104000,
+      "text": "Anna gewinnt Feld 33 für 230.",
+      "msg": {
+        "key": "log.auctionWon",
+        "params": {
+          "player": "p1",
+          "tile": 33,
+          "amount": 230
+        }
+      }
+    },
+    {
+      "at": 1760000105000,
+      "text": "Clara würfelt 2+5.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p3",
+          "a": 2,
+          "b": 5
+        }
+      }
+    },
+    {
+      "at": 1760000106000,
+      "text": "Versteigerung von Feld 40.",
+      "msg": {
+        "key": "log.auctionStart",
+        "params": {
+          "tile": 40
+        }
+      }
+    },
+    {
+      "at": 1760000107000,
+      "text": "Anna bietet 100.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 100
+        }
+      }
+    },
+    {
+      "at": 1760000108000,
+      "text": "Ben bietet 140.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 140
+        }
+      }
+    },
+    {
+      "at": 1760000109000,
+      "text": "Clara bietet 180.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 180
+        }
+      }
+    },
+    {
+      "at": 1760000110000,
+      "text": "Anna bietet 220.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 220
+        }
+      }
+    },
+    {
+      "at": 1760000111000,
+      "text": "Ben passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p2"
+        }
+      }
+    },
+    {
+      "at": 1760000112000,
+      "text": "Clara bietet 260.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 260
+        }
+      }
+    },
+    {
+      "at": 1760000113000,
+      "text": "Anna passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p1"
+        }
+      }
+    },
+    {
+      "at": 1760000113000,
+      "text": "Clara gewinnt Feld 40 für 260.",
+      "msg": {
+        "key": "log.auctionWon",
+        "params": {
+          "player": "p3",
+          "tile": 40,
+          "amount": 260
+        }
+      }
+    },
+    {
+      "at": 1760000114000,
+      "text": "Anna erhält 12 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p1",
+          "amount": 12
+        }
+      }
+    },
+    {
+      "at": 1760000114000,
+      "text": "Ben erhält 14 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p2",
+          "amount": 14
+        }
+      }
+    },
+    {
+      "at": 1760000114000,
+      "text": "Clara erhält 8 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p3",
+          "amount": 8
+        }
+      }
+    },
+    {
+      "at": 1760000115000,
+      "text": "Anna würfelt 4+6.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p1",
+          "a": 4,
+          "b": 6
+        }
+      }
+    },
+    {
+      "at": 1760000116000,
+      "text": "Anna kauft Feld 10 für 140.",
+      "msg": {
+        "key": "log.bought",
+        "params": {
+          "player": "p1",
+          "tile": 10,
+          "amount": 140
+        }
+      }
+    },
+    {
+      "at": 1760000118000,
+      "text": "Ben würfelt 2+6.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p2",
+          "a": 2,
+          "b": 6
+        }
+      }
+    },
+    {
+      "at": 1760000118000,
+      "text": "Ben zahlt 15 Miete an Anna (Feld 31).",
+      "msg": {
+        "key": "log.rentPaid",
+        "params": {
+          "player": "p2",
+          "amount": 15,
+          "owner": "p1",
+          "tile": 31
+        }
+      }
+    },
+    {
+      "at": 1760000120000,
+      "text": "Clara würfelt 1+3.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p3",
+          "a": 1,
+          "b": 3
+        }
+      }
+    },
+    {
+      "at": 1760000120000,
+      "text": "Clara zahlt 25 Miete an Anna (Feld 44).",
+      "msg": {
+        "key": "log.rentPaid",
+        "params": {
+          "player": "p3",
+          "amount": 25,
+          "owner": "p1",
+          "tile": 44
+        }
+      }
+    },
+    {
+      "at": 1760000121000,
+      "text": "Anna erhält 11 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p1",
+          "amount": 11
+        }
+      }
+    },
+    {
+      "at": 1760000121000,
+      "text": "Ben erhält 13 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p2",
+          "amount": 13
+        }
+      }
+    },
+    {
+      "at": 1760000121000,
+      "text": "Clara erhält 7 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p3",
+          "amount": 7
+        }
+      }
+    },
+    {
+      "at": 1760000122000,
+      "text": "Anna würfelt 5+1.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p1",
+          "a": 5,
+          "b": 1
+        }
+      }
+    },
+    {
+      "at": 1760000123000,
+      "text": "Versteigerung von Feld 16.",
+      "msg": {
+        "key": "log.auctionStart",
+        "params": {
+          "tile": 16
+        }
+      }
+    },
+    {
+      "at": 1760000124000,
+      "text": "Ben bietet 50.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 50
+        }
+      }
+    },
+    {
+      "at": 1760000125000,
+      "text": "Clara bietet 70.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 70
+        }
+      }
+    },
+    {
+      "at": 1760000126000,
+      "text": "Anna bietet 90.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 90
+        }
+      }
+    },
+    {
+      "at": 1760000127000,
+      "text": "Ben bietet 110.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 110
+        }
+      }
+    },
+    {
+      "at": 1760000128000,
+      "text": "Clara bietet 130.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 130
+        }
+      }
+    },
+    {
+      "at": 1760000129000,
+      "text": "Anna bietet 150.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 150
+        }
+      }
+    },
+    {
+      "at": 1760000130000,
+      "text": "Ben bietet 170.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 170
+        }
+      }
+    },
+    {
+      "at": 1760000131000,
+      "text": "Clara passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p3"
+        }
+      }
+    },
+    {
+      "at": 1760000132000,
+      "text": "Anna passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p1"
+        }
+      }
+    },
+    {
+      "at": 1760000132000,
+      "text": "Ben gewinnt Feld 16 für 170.",
+      "msg": {
+        "key": "log.auctionWon",
+        "params": {
+          "player": "p2",
+          "tile": 16,
+          "amount": 170
+        }
+      }
+    },
+    {
+      "at": 1760000134000,
+      "text": "Ben würfelt 4+6.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p2",
+          "a": 4,
+          "b": 6
+        }
+      }
+    },
+    {
+      "at": 1760000135000,
+      "text": "Versteigerung von Feld 41.",
+      "msg": {
+        "key": "log.auctionStart",
+        "params": {
+          "tile": 41
+        }
+      }
+    },
+    {
+      "at": 1760000136000,
+      "text": "Clara bietet 100.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 100
+        }
+      }
+    },
+    {
+      "at": 1760000137000,
+      "text": "Anna bietet 140.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 140
+        }
+      }
+    },
+    {
+      "at": 1760000138000,
+      "text": "Ben passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p2"
+        }
+      }
+    },
+    {
+      "at": 1760000139000,
+      "text": "Clara bietet 180.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 180
+        }
+      }
+    },
+    {
+      "at": 1760000140000,
+      "text": "Anna passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p1"
+        }
+      }
+    },
+    {
+      "at": 1760000140000,
+      "text": "Clara gewinnt Feld 41 für 180.",
+      "msg": {
+        "key": "log.auctionWon",
+        "params": {
+          "player": "p3",
+          "tile": 41,
+          "amount": 180
+        }
+      }
+    },
+    {
+      "at": 1760000142000,
+      "text": "Clara würfelt 5+5 (Pasch).",
+      "msg": {
+        "key": "log.rolledDoubles",
+        "params": {
+          "player": "p3",
+          "a": 5,
+          "b": 5
+        }
+      }
+    },
+    {
+      "at": 1760000142000,
+      "text": "Clara kassiert 200 für einen weiteren Abflug.",
+      "msg": {
+        "key": "log.goSalary",
+        "params": {
+          "player": "p3",
+          "amount": 200
+        }
+      }
+    },
+    {
+      "at": 1760000142000,
+      "text": "Clara zieht eine Karte (cc-consultancy).",
+      "msg": {
+        "key": "log.cardDrawn",
+        "params": {
+          "player": "p3",
+          "card": "cc-consultancy"
+        }
+      }
+    },
+    {
+      "at": 1760000143000,
+      "text": "Clara würfelt 1+3.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p3",
+          "a": 1,
+          "b": 3
+        }
+      }
+    },
+    {
+      "at": 1760000144000,
+      "text": "Clara kauft Feld 6 für 100.",
+      "msg": {
+        "key": "log.bought",
+        "params": {
+          "player": "p3",
+          "tile": 6,
+          "amount": 100
+        }
+      }
+    },
+    {
+      "at": 1760000145000,
+      "text": "Anna erhält 12 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p1",
+          "amount": 12
+        }
+      }
+    },
+    {
+      "at": 1760000145000,
+      "text": "Ben erhält 14 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p2",
+          "amount": 14
+        }
+      }
+    },
+    {
+      "at": 1760000145000,
+      "text": "Clara erhält 8 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p3",
+          "amount": 8
+        }
+      }
+    },
+    {
+      "at": 1760000146000,
+      "text": "Anna würfelt 5+2.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p1",
+          "a": 5,
+          "b": 2
+        }
+      }
+    },
+    {
+      "at": 1760000146000,
+      "text": "Anna zahlt 11 Miete an Ben (Feld 23).",
+      "msg": {
+        "key": "log.rentPaid",
+        "params": {
+          "player": "p1",
+          "amount": 11,
+          "owner": "p2",
+          "tile": 23
+        }
+      }
+    },
+    {
+      "at": 1760000148000,
+      "text": "Ben würfelt 4+5.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p2",
+          "a": 4,
+          "b": 5
+        }
+      }
+    },
+    {
+      "at": 1760000149000,
+      "text": "Versteigerung von Feld 50.",
+      "msg": {
+        "key": "log.auctionStart",
+        "params": {
+          "tile": 50
+        }
+      }
+    },
+    {
+      "at": 1760000150000,
+      "text": "Clara bietet 120.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 120
+        }
+      }
+    },
+    {
+      "at": 1760000151000,
+      "text": "Anna bietet 160.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 160
+        }
+      }
+    },
+    {
+      "at": 1760000152000,
+      "text": "Ben passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p2"
+        }
+      }
+    },
+    {
+      "at": 1760000153000,
+      "text": "Clara bietet 200.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 200
+        }
+      }
+    },
+    {
+      "at": 1760000154000,
+      "text": "Anna bietet 240.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 240
+        }
+      }
+    },
+    {
+      "at": 1760000155000,
+      "text": "Clara bietet 280.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 280
+        }
+      }
+    },
+    {
+      "at": 1760000156000,
+      "text": "Anna passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p1"
+        }
+      }
+    },
+    {
+      "at": 1760000156000,
+      "text": "Clara gewinnt Feld 50 für 280.",
+      "msg": {
+        "key": "log.auctionWon",
+        "params": {
+          "player": "p3",
+          "tile": 50,
+          "amount": 280
+        }
+      }
+    },
+    {
+      "at": 1760000158000,
+      "text": "Clara würfelt 5+2.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p3",
+          "a": 5,
+          "b": 2
+        }
+      }
+    },
+    {
+      "at": 1760000159000,
+      "text": "Anna erhält 12 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p1",
+          "amount": 12
+        }
+      }
+    },
+    {
+      "at": 1760000159000,
+      "text": "Ben erhält 14 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p2",
+          "amount": 14
+        }
+      }
+    },
+    {
+      "at": 1760000159000,
+      "text": "Clara erhält 8 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p3",
+          "amount": 8
+        }
+      }
+    },
+    {
+      "at": 1760000160000,
+      "text": "Anna würfelt 5+1.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p1",
+          "a": 5,
+          "b": 1
+        }
+      }
+    },
+    {
+      "at": 1760000161000,
+      "text": "Versteigerung von Feld 29.",
+      "msg": {
+        "key": "log.auctionStart",
+        "params": {
+          "tile": 29
+        }
+      }
+    },
+    {
+      "at": 1760000162000,
+      "text": "Ben bietet 70.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 70
+        }
+      }
+    },
+    {
+      "at": 1760000163000,
+      "text": "Clara bietet 100.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 100
+        }
+      }
+    },
+    {
+      "at": 1760000164000,
+      "text": "Anna bietet 130.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 130
+        }
+      }
+    },
+    {
+      "at": 1760000165000,
+      "text": "Ben passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p2"
+        }
+      }
+    },
+    {
+      "at": 1760000166000,
+      "text": "Clara bietet 160.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 160
+        }
+      }
+    },
+    {
+      "at": 1760000167000,
+      "text": "Anna passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p1"
+        }
+      }
+    },
+    {
+      "at": 1760000167000,
+      "text": "Clara gewinnt Feld 29 für 160.",
+      "msg": {
+        "key": "log.auctionWon",
+        "params": {
+          "player": "p3",
+          "tile": 29,
+          "amount": 160
+        }
+      }
+    },
+    {
+      "at": 1760000169000,
+      "text": "Ben würfelt 3+4.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p2",
+          "a": 3,
+          "b": 4
+        }
+      }
+    },
+    {
+      "at": 1760000169000,
+      "text": "Ben kassiert 200 für einen weiteren Abflug.",
+      "msg": {
+        "key": "log.goSalary",
+        "params": {
+          "player": "p2",
+          "amount": 200
+        }
+      }
+    },
+    {
+      "at": 1760000169000,
+      "text": "Ben zahlt 25 Miete an Clara (Feld 5).",
+      "msg": {
+        "key": "log.rentPaid",
+        "params": {
+          "player": "p2",
+          "amount": 25,
+          "owner": "p3",
+          "tile": 5
+        }
+      }
+    },
+    {
+      "at": 1760000171000,
+      "text": "Clara würfelt 3+3 (Pasch).",
+      "msg": {
+        "key": "log.rolledDoubles",
+        "params": {
+          "player": "p3",
+          "a": 3,
+          "b": 3
+        }
+      }
+    },
+    {
+      "at": 1760000172000,
+      "text": "Versteigerung von Feld 19.",
+      "msg": {
+        "key": "log.auctionStart",
+        "params": {
+          "tile": 19
+        }
+      }
+    },
+    {
+      "at": 1760000173000,
+      "text": "Anna bietet 60.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 60
+        }
+      }
+    },
+    {
+      "at": 1760000174000,
+      "text": "Ben bietet 80.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 80
+        }
+      }
+    },
+    {
+      "at": 1760000175000,
+      "text": "Clara bietet 100.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 100
+        }
+      }
+    },
+    {
+      "at": 1760000176000,
+      "text": "Anna bietet 120.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p1",
+          "amount": 120
+        }
+      }
+    },
+    {
+      "at": 1760000177000,
+      "text": "Ben bietet 140.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 140
+        }
+      }
+    },
+    {
+      "at": 1760000178000,
+      "text": "Clara bietet 160.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p3",
+          "amount": 160
+        }
+      }
+    },
+    {
+      "at": 1760000179000,
+      "text": "Anna passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p1"
+        }
+      }
+    },
+    {
+      "at": 1760000180000,
+      "text": "Ben bietet 180.",
+      "msg": {
+        "key": "log.bid",
+        "params": {
+          "player": "p2",
+          "amount": 180
+        }
+      }
+    },
+    {
+      "at": 1760000181000,
+      "text": "Clara passt.",
+      "msg": {
+        "key": "log.passed",
+        "params": {
+          "player": "p3"
+        }
+      }
+    },
+    {
+      "at": 1760000181000,
+      "text": "Ben gewinnt Feld 19 für 180.",
+      "msg": {
+        "key": "log.auctionWon",
+        "params": {
+          "player": "p2",
+          "tile": 19,
+          "amount": 180
+        }
+      }
+    },
+    {
+      "at": 1760000182000,
+      "text": "Clara würfelt 2+4.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p3",
+          "a": 2,
+          "b": 4
+        }
+      }
+    },
+    {
+      "at": 1760000182000,
+      "text": "Clara zahlt 12 Miete an Ben (Feld 25).",
+      "msg": {
+        "key": "log.rentPaid",
+        "params": {
+          "player": "p3",
+          "amount": 12,
+          "owner": "p2",
+          "tile": 25
+        }
+      }
+    },
+    {
+      "at": 1760000183000,
+      "text": "Anna erhält 12 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p1",
+          "amount": 12
+        }
+      }
+    },
+    {
+      "at": 1760000183000,
+      "text": "Ben erhält 14 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p2",
+          "amount": 14
+        }
+      }
+    },
+    {
+      "at": 1760000183000,
+      "text": "Clara erhält 8 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p3",
+          "amount": 8
+        }
+      }
+    },
+    {
+      "at": 1760000184000,
+      "text": "Anna würfelt 2+5.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p1",
+          "a": 2,
+          "b": 5
+        }
+      }
+    },
+    {
+      "at": 1760000186000,
+      "text": "Ben würfelt 1+1 (Pasch).",
+      "msg": {
+        "key": "log.rolledDoubles",
+        "params": {
+          "player": "p2",
+          "a": 1,
+          "b": 1
+        }
+      }
+    },
+    {
+      "at": 1760000186000,
+      "text": "Ben zieht eine Karte (ch-jail).",
+      "msg": {
+        "key": "log.cardDrawn",
+        "params": {
+          "player": "p2",
+          "card": "ch-jail"
+        }
+      }
+    },
+    {
+      "at": 1760000186000,
+      "text": "Ben fliegt auf und landet in der U-Haft.",
+      "msg": {
+        "key": "log.goToJail",
+        "params": {
+          "player": "p2"
+        }
+      }
+    },
+    {
+      "at": 1760000188000,
+      "text": "Clara würfelt 5+3.",
+      "msg": {
+        "key": "log.rolled",
+        "params": {
+          "player": "p3",
+          "a": 5,
+          "b": 3
+        }
+      }
+    },
+    {
+      "at": 1760000188000,
+      "text": "Clara zahlt 15 Miete an Anna (Feld 33).",
+      "msg": {
+        "key": "log.rentPaid",
+        "params": {
+          "player": "p3",
+          "amount": 15,
+          "owner": "p1",
+          "tile": 33
+        }
+      }
+    },
+    {
+      "at": 1760000189000,
+      "text": "Anna erhält 12 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p1",
+          "amount": 12
+        }
+      }
+    },
+    {
+      "at": 1760000189000,
+      "text": "Ben erhält 14 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p2",
+          "amount": 14
+        }
+      }
+    },
+    {
+      "at": 1760000189000,
+      "text": "Clara erhält 8 Dividende auf Wertpapiere.",
+      "msg": {
+        "key": "log.dividend",
+        "params": {
+          "player": "p3",
+          "amount": 8
+        }
+      }
+    }
+  ]
+}

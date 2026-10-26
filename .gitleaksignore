@@ -1,0 +1,3 @@
+# Documented false positives in git history (docs/DESIGN.md #46). One fingerprint per line.
+# made-up test token in the resume-route unit test (not a real seat token)
+74d7a8596cf0df6b0f3cb4f341fa39f60a1c186f:packages/client/test/route.test.ts:generic-api-key:4

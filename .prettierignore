@@ -1,0 +1,11 @@
+node_modules/
+dist/
+data/
+package-lock.json
+packages/client/public/
+scripts/meshy/raw/
+*.md
+playwright-report/
+test-results/
+.features-gen/
+.claude/

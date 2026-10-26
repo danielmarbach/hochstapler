@@ -1,0 +1,23 @@
+# gitleaks: default rules + narrowly scoped, documented false positives (docs/DESIGN.md #46).
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "The skill reference shows a deliberately BAD example (hardcoded key) next to the fix"
+paths = ['''\.claude/skills/typescript-code-review/references/security-checklist\.md''']
+
+[[allowlists]]
+description = "Local, gitignored files: agent worktrees (repo copies), dependencies, build output, local env files, local game data"
+paths = [
+  '''(^|/)\.claude/worktrees/''',
+  '''(^|/)data/games\.sqlite[^/]*$''',
+  '''(^|/)\.env\.azure$''',
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+  '''(^|/)\.env\.local$''',
+]
+
+[[allowlists]]
+description = "Migration fixtures: anonymised games store sha256 hashes of FAKE seat tokens (verified: no overlap with real data)"
+paths = ['''packages/server/test/fixtures/.*\.json$''']
+regexes = ['''"tokenHash":\s*"[0-9a-f]{64}"''']

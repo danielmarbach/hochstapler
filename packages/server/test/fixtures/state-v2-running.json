@@ -1,0 +1,1416 @@
+{
+ "id": "fxsecrun",
+ "version": 83,
+ "status": "running",
+ "settings": {
+  "themeId": "fr",
+  "startingCash": 2000,
+  "goSalary": 200,
+  "doubleOnGoLanding": false,
+  "turnTimeoutSec": 60,
+  "awayAfterMissedTurns": 2,
+  "auctions": true,
+  "freeParkingJackpot": false,
+  "evenBuild": true,
+  "buildingLimits": {
+   "houses": 48,
+   "hotels": 16,
+   "skyscrapers": 8
+  },
+  "maxRounds": 0,
+  "securities": true,
+  "securitiesLockRounds": 2
+ },
+ "players": [
+  {
+   "id": "p1",
+   "name": "Anna",
+   "color": "#e74c3c",
+   "tokenId": "eiffel",
+   "controller": "away",
+   "botLevel": "normal",
+   "cash": 777,
+   "position": 15,
+   "inJail": false,
+   "jailTurns": 0,
+   "jailCards": [],
+   "bankrupt": false,
+   "missedTurns": 0,
+   "holdings": [
+    {
+     "secId": "fr-cafe",
+     "shares": 3,
+     "buyPrice": 95,
+     "boughtRound": 1
+    },
+    {
+     "secId": "fr-haussmann",
+     "shares": 1,
+     "buyPrice": 129,
+     "boughtRound": 2
+    },
+    {
+     "secId": "fr-eiffel",
+     "shares": 1,
+     "buyPrice": 89,
+     "boughtRound": 3
+    },
+    {
+     "secId": "fr-sncf",
+     "shares": 1,
+     "buyPrice": 34,
+     "boughtRound": 6
+    },
+    {
+     "secId": "fr-sncf",
+     "shares": 1,
+     "buyPrice": 35,
+     "boughtRound": 7
+    }
+   ]
+  },
+  {
+   "id": "p2",
+   "name": "Ben",
+   "color": "#3498db",
+   "tokenId": "baguette",
+   "controller": "bot",
+   "botLevel": "normal",
+   "cash": 407,
+   "position": 38,
+   "inJail": false,
+   "jailTurns": 0,
+   "jailCards": [],
+   "bankrupt": false,
+   "missedTurns": 0,
+   "holdings": [
+    {
+     "secId": "fr-eiffel",
+     "shares": 3,
+     "buyPrice": 90,
+     "boughtRound": 1
+    },
+    {
+     "secId": "fr-sncf",
+     "shares": 3,
+     "buyPrice": 36,
+     "boughtRound": 2
+    },
+    {
+     "secId": "fr-sncf",
+     "shares": 1,
+     "buyPrice": 35,
+     "boughtRound": 3
+    }
+   ]
+  },
+  {
+   "id": "p3",
+   "name": "Clara",
+   "color": "#2ecc71",
+   "tokenId": "croissant",
+   "controller": "bot",
+   "botLevel": "normal",
+   "cash": 421,
+   "position": 48,
+   "inJail": false,
+   "jailTurns": 0,
+   "jailCards": [],
+   "bankrupt": false,
+   "missedTurns": 0,
+   "holdings": [
+    {
+     "secId": "fr-camembert",
+     "shares": 3,
+     "buyPrice": 55,
+     "boughtRound": 2
+    },
+    {
+     "secId": "fr-sncf",
+     "shares": 5,
+     "buyPrice": 35,
+     "boughtRound": 3
+    },
+    {
+     "secId": "fr-credit",
+     "shares": 1,
+     "buyPrice": 111,
+     "boughtRound": 4
+    }
+   ]
+  }
+ ],
+ "current": 0,
+ "round": 8,
+ "phase": {
+  "type": "await-roll"
+ },
+ "properties": {
+  "1": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "3": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "5": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "6": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "8": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "9": {
+   "owner": "p1",
+   "level": 0,
+   "mortgaged": false
+  },
+  "10": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "11": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "12": {
+   "owner": "p2",
+   "level": 0,
+   "mortgaged": false
+  },
+  "14": {
+   "owner": "p2",
+   "level": 0,
+   "mortgaged": false
+  },
+  "15": {
+   "owner": "p2",
+   "level": 0,
+   "mortgaged": false
+  },
+  "16": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "17": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "18": {
+   "owner": "p3",
+   "level": 0,
+   "mortgaged": false
+  },
+  "19": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "20": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "22": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "23": {
+   "owner": "p1",
+   "level": 0,
+   "mortgaged": false
+  },
+  "25": {
+   "owner": "p2",
+   "level": 0,
+   "mortgaged": false
+  },
+  "27": {
+   "owner": "p2",
+   "level": 0,
+   "mortgaged": false
+  },
+  "29": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "30": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "31": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "32": {
+   "owner": "p2",
+   "level": 0,
+   "mortgaged": false
+  },
+  "33": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "34": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "35": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "36": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "38": {
+   "owner": "p3",
+   "level": 0,
+   "mortgaged": false
+  },
+  "40": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "41": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "42": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "43": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "44": {
+   "owner": "p3",
+   "level": 0,
+   "mortgaged": false
+  },
+  "46": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "47": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "48": {
+   "owner": "p3",
+   "level": 0,
+   "mortgaged": false
+  },
+  "50": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "51": {
+   "owner": "p1",
+   "level": 0,
+   "mortgaged": false
+  }
+ },
+ "dice": null,
+ "doublesCount": 0,
+ "decks": {
+  "chance": [
+   "ch-speeding",
+   "ch-g6-first",
+   "ch-dividend",
+   "ch-g3-first",
+   "ch-jail",
+   "ch-repairs",
+   "ch-nearest-station",
+   "ch-loan",
+   "ch-jail-card",
+   "ch-nearest-station-2",
+   "ch-chairman",
+   "ch-back-3",
+   "ch-station-1",
+   "ch-g9-last",
+   "ch-go",
+   "ch-nearest-utility"
+  ],
+  "community": [
+   "cc-stock",
+   "cc-bank-error",
+   "cc-insurance",
+   "cc-doctor",
+   "cc-consultancy",
+   "cc-tax-refund",
+   "cc-jail-card",
+   "cc-go",
+   "cc-beauty",
+   "cc-holiday",
+   "cc-inherit",
+   "cc-birthday",
+   "cc-hospital",
+   "cc-street-repairs",
+   "cc-school",
+   "cc-jail"
+  ]
+ },
+ "bank": {
+  "houses": 48,
+  "hotels": 16,
+  "skyscrapers": 8
+ },
+ "market": {
+  "prices": {
+   "fr-eiffel": 97,
+   "fr-camembert": 38,
+   "fr-sncf": 37,
+   "fr-credit": 110,
+   "fr-cafe": 90,
+   "fr-haussmann": 127
+  },
+  "history": {
+   "fr-eiffel": [
+    90,
+    88,
+    89,
+    92,
+    94,
+    96,
+    97,
+    97
+   ],
+   "fr-camembert": [
+    55,
+    55,
+    55,
+    56,
+    56,
+    54,
+    38,
+    38
+   ],
+   "fr-sncf": [
+    35,
+    36,
+    35,
+    34,
+    34,
+    34,
+    35,
+    37
+   ],
+   "fr-credit": [
+    110,
+    113,
+    110,
+    111,
+    109,
+    112,
+    109,
+    110
+   ],
+   "fr-cafe": [
+    95,
+    92,
+    88,
+    87,
+    86,
+    88,
+    87,
+    90
+   ],
+   "fr-haussmann": [
+    130,
+    129,
+    131,
+    129,
+    127,
+    125,
+    127,
+    127
+   ]
+  },
+  "activity": {
+   "builds": 0,
+   "scenicBuilds": 0,
+   "rentPaid": 0,
+   "stationRents": 0,
+   "utilityRents": 0,
+   "bankruptcies": 0
+  }
+ },
+ "freeParkingPot": 0,
+ "trades": [],
+ "deadline": null,
+ "rng": -10044176,
+ "log": [
+  {
+   "at": 1760000000000,
+   "text": "Spiel gestartet. Anna beginnt.",
+   "msg": {
+    "key": "log.gameStarted",
+    "params": {
+     "player": "p1"
+    }
+   }
+  },
+  {
+   "at": 1760000001000,
+   "text": "Anna würfelt 5+4.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p1",
+     "a": 5,
+     "b": 4
+    }
+   }
+  },
+  {
+   "at": 1760000002000,
+   "text": "Anna kauft Feld 9 für 120.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p1",
+     "tile": 9,
+     "amount": 120
+    }
+   }
+  },
+  {
+   "at": 1760000003000,
+   "text": "Anna kauft 3 × Crypto-Café Montmartre für 285.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p1",
+     "shares": 3,
+     "security": "fr-cafe",
+     "amount": 285
+    }
+   }
+  },
+  {
+   "at": 1760000005000,
+   "text": "Ben würfelt 6+6 (Pasch).",
+   "msg": {
+    "key": "log.rolledDoubles",
+    "params": {
+     "player": "p2",
+     "a": 6,
+     "b": 6
+    }
+   }
+  },
+  {
+   "at": 1760000006000,
+   "text": "Ben kauft Feld 12 für 160.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p2",
+     "tile": 12,
+     "amount": 160
+    }
+   }
+  },
+  {
+   "at": 1760000007000,
+   "text": "Ben kauft 3 × Tour-Eiffel Ascenseurs SA für 270.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p2",
+     "shares": 3,
+     "security": "fr-eiffel",
+     "amount": 270
+    }
+   }
+  },
+  {
+   "at": 1760000008000,
+   "text": "Ben würfelt 1+1 (Pasch).",
+   "msg": {
+    "key": "log.rolledDoubles",
+    "params": {
+     "player": "p2",
+     "a": 1,
+     "b": 1
+    }
+   }
+  },
+  {
+   "at": 1760000009000,
+   "text": "Ben kauft Feld 14 für 160.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p2",
+     "tile": 14,
+     "amount": 160
+    }
+   }
+  },
+  {
+   "at": 1760000010000,
+   "text": "Ben würfelt 6+1.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p2",
+     "a": 6,
+     "b": 1
+    }
+   }
+  },
+  {
+   "at": 1760000010000,
+   "text": "Ben zieht eine Karte (cc-school).",
+   "msg": {
+    "key": "log.cardDrawn",
+    "params": {
+     "player": "p2",
+     "card": "cc-school"
+    }
+   }
+  },
+  {
+   "at": 1760000012000,
+   "text": "Clara würfelt 5+4.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p3",
+     "a": 5,
+     "b": 4
+    }
+   }
+  },
+  {
+   "at": 1760000012000,
+   "text": "Clara zahlt 5 Miete an Anna (Feld 9).",
+   "msg": {
+    "key": "log.rentPaid",
+    "params": {
+     "player": "p3",
+     "amount": 5,
+     "owner": "p1",
+     "tile": 9
+    }
+   }
+  },
+  {
+   "at": 1760000013000,
+   "text": "Clara kauft 3 × Tour-Eiffel Ascenseurs SA für 270.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p3",
+     "shares": 3,
+     "security": "fr-eiffel",
+     "amount": 270
+    }
+   }
+  },
+  {
+   "at": 1760000015000,
+   "text": "Anna würfelt 2+3.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p1",
+     "a": 2,
+     "b": 3
+    }
+   }
+  },
+  {
+   "at": 1760000015000,
+   "text": "Anna zahlt 7 Miete an Ben (Feld 14).",
+   "msg": {
+    "key": "log.rentPaid",
+    "params": {
+     "player": "p1",
+     "amount": 7,
+     "owner": "p2",
+     "tile": 14
+    }
+   }
+  },
+  {
+   "at": 1760000016000,
+   "text": "Anna kauft 1 × Immobilière Haussmann SA für 129.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p1",
+     "shares": 1,
+     "security": "fr-haussmann",
+     "amount": 129
+    }
+   }
+  },
+  {
+   "at": 1760000018000,
+   "text": "Ben würfelt 5+1.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p2",
+     "a": 5,
+     "b": 1
+    }
+   }
+  },
+  {
+   "at": 1760000019000,
+   "text": "Ben kauft Feld 27 für 240.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p2",
+     "tile": 27,
+     "amount": 240
+    }
+   }
+  },
+  {
+   "at": 1760000020000,
+   "text": "Ben kauft 3 × SNCF Retards & Cie für 108.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p2",
+     "shares": 3,
+     "security": "fr-sncf",
+     "amount": 108
+    }
+   }
+  },
+  {
+   "at": 1760000022000,
+   "text": "Clara würfelt 6+3.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p3",
+     "a": 6,
+     "b": 3
+    }
+   }
+  },
+  {
+   "at": 1760000023000,
+   "text": "Clara kauft Feld 18 für 200.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p3",
+     "tile": 18,
+     "amount": 200
+    }
+   }
+  },
+  {
+   "at": 1760000024000,
+   "text": "Clara kauft 3 × Camembert & Fils SA für 165.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p3",
+     "shares": 3,
+     "security": "fr-camembert",
+     "amount": 165
+    }
+   }
+  },
+  {
+   "at": 1760000026000,
+   "text": "Anna würfelt 4+5.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p1",
+     "a": 4,
+     "b": 5
+    }
+   }
+  },
+  {
+   "at": 1760000027000,
+   "text": "Anna kauft Feld 23 für 220.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p1",
+     "tile": 23,
+     "amount": 220
+    }
+   }
+  },
+  {
+   "at": 1760000028000,
+   "text": "Anna kauft 1 × Tour-Eiffel Ascenseurs SA für 89.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p1",
+     "shares": 1,
+     "security": "fr-eiffel",
+     "amount": 89
+    }
+   }
+  },
+  {
+   "at": 1760000030000,
+   "text": "Ben würfelt 3+2.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p2",
+     "a": 3,
+     "b": 2
+    }
+   }
+  },
+  {
+   "at": 1760000031000,
+   "text": "Ben kauft Feld 32 für 200.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p2",
+     "tile": 32,
+     "amount": 200
+    }
+   }
+  },
+  {
+   "at": 1760000032000,
+   "text": "Ben kauft 1 × SNCF Retards & Cie für 35.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p2",
+     "shares": 1,
+     "security": "fr-sncf",
+     "amount": 35
+    }
+   }
+  },
+  {
+   "at": 1760000034000,
+   "text": "Clara würfelt 6+2.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p3",
+     "a": 6,
+     "b": 2
+    }
+   }
+  },
+  {
+   "at": 1760000035000,
+   "text": "Clara kauft 5 × SNCF Retards & Cie für 175.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p3",
+     "shares": 5,
+     "security": "fr-sncf",
+     "amount": 175
+    }
+   }
+  },
+  {
+   "at": 1760000037000,
+   "text": "Anna würfelt 1+4.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p1",
+     "a": 1,
+     "b": 4
+    }
+   }
+  },
+  {
+   "at": 1760000037000,
+   "text": "Anna zieht eine Karte (ch-g9-last).",
+   "msg": {
+    "key": "log.cardDrawn",
+    "params": {
+     "player": "p1",
+     "card": "ch-g9-last"
+    }
+   }
+  },
+  {
+   "at": 1760000038000,
+   "text": "Anna kauft Feld 51 für 450.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p1",
+     "tile": 51,
+     "amount": 450
+    }
+   }
+  },
+  {
+   "at": 1760000040000,
+   "text": "Ben würfelt 4+1.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p2",
+     "a": 4,
+     "b": 1
+    }
+   }
+  },
+  {
+   "at": 1760000040000,
+   "text": "Ben zieht eine Karte (cc-jail).",
+   "msg": {
+    "key": "log.cardDrawn",
+    "params": {
+     "player": "p2",
+     "card": "cc-jail"
+    }
+   }
+  },
+  {
+   "at": 1760000040000,
+   "text": "Ben fliegt auf und landet in der U-Haft.",
+   "msg": {
+    "key": "log.goToJail",
+    "params": {
+     "player": "p2"
+    }
+   }
+  },
+  {
+   "at": 1760000042000,
+   "text": "Clara würfelt 5+1.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p3",
+     "a": 5,
+     "b": 1
+    }
+   }
+  },
+  {
+   "at": 1760000042000,
+   "text": "Clara zahlt 25 Miete an Ben (Feld 32).",
+   "msg": {
+    "key": "log.rentPaid",
+    "params": {
+     "player": "p3",
+     "amount": 25,
+     "owner": "p2",
+     "tile": 32
+    }
+   }
+  },
+  {
+   "at": 1760000043000,
+   "text": "Clara kauft 1 × Crédit Croissant SA für 111.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p3",
+     "shares": 1,
+     "security": "fr-credit",
+     "amount": 111
+    }
+   }
+  },
+  {
+   "at": 1760000045000,
+   "text": "Anna würfelt 2+3.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p1",
+     "a": 2,
+     "b": 3
+    }
+   }
+  },
+  {
+   "at": 1760000045000,
+   "text": "Anna kassiert 200 für einen weiteren Abflug.",
+   "msg": {
+    "key": "log.goSalary",
+    "params": {
+     "player": "p1",
+     "amount": 200
+    }
+   }
+  },
+  {
+   "at": 1760000045000,
+   "text": "Anna zahlt 200 Steuern.",
+   "msg": {
+    "key": "log.taxPaid",
+    "params": {
+     "player": "p1",
+     "amount": 200
+    }
+   }
+  },
+  {
+   "at": 1760000048000,
+   "text": "Ben würfelt 1+1 (Pasch).",
+   "msg": {
+    "key": "log.rolledDoubles",
+    "params": {
+     "player": "p2",
+     "a": 1,
+     "b": 1
+    }
+   }
+  },
+  {
+   "at": 1760000049000,
+   "text": "Ben kauft Feld 15 für 150.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p2",
+     "tile": 15,
+     "amount": 150
+    }
+   }
+  },
+  {
+   "at": 1760000050000,
+   "text": "Ben würfelt 2+6.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p2",
+     "a": 2,
+     "b": 6
+    }
+   }
+  },
+  {
+   "at": 1760000050000,
+   "text": "Ben zahlt 11 Miete an Anna (Feld 23).",
+   "msg": {
+    "key": "log.rentPaid",
+    "params": {
+     "player": "p2",
+     "amount": 11,
+     "owner": "p1",
+     "tile": 23
+    }
+   }
+  },
+  {
+   "at": 1760000052000,
+   "text": "Clara würfelt 5+1.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p3",
+     "a": 5,
+     "b": 1
+    }
+   }
+  },
+  {
+   "at": 1760000053000,
+   "text": "Clara kauft Feld 38 für 340.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p3",
+     "tile": 38,
+     "amount": 340
+    }
+   }
+  },
+  {
+   "at": 1760000055000,
+   "text": "Anna würfelt 1+2.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p1",
+     "a": 1,
+     "b": 2
+    }
+   }
+  },
+  {
+   "at": 1760000055000,
+   "text": "Anna zieht eine Karte (ch-go).",
+   "msg": {
+    "key": "log.cardDrawn",
+    "params": {
+     "player": "p1",
+     "card": "ch-go"
+    }
+   }
+  },
+  {
+   "at": 1760000055000,
+   "text": "Anna kassiert 200 für einen weiteren Abflug.",
+   "msg": {
+    "key": "log.goSalary",
+    "params": {
+     "player": "p1",
+     "amount": 200
+    }
+   }
+  },
+  {
+   "at": 1760000056000,
+   "text": "Anna kauft 1 × SNCF Retards & Cie für 34.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p1",
+     "shares": 1,
+     "security": "fr-sncf",
+     "amount": 34
+    }
+   }
+  },
+  {
+   "at": 1760000058000,
+   "text": "Ben würfelt 1+1 (Pasch).",
+   "msg": {
+    "key": "log.rolledDoubles",
+    "params": {
+     "player": "p2",
+     "a": 1,
+     "b": 1
+    }
+   }
+  },
+  {
+   "at": 1760000059000,
+   "text": "Ben kauft Feld 25 für 240.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p2",
+     "tile": 25,
+     "amount": 240
+    }
+   }
+  },
+  {
+   "at": 1760000060000,
+   "text": "Ben würfelt 2+5.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p2",
+     "a": 2,
+     "b": 5
+    }
+   }
+  },
+  {
+   "at": 1760000062000,
+   "text": "Clara würfelt 1+5.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p3",
+     "a": 1,
+     "b": 5
+    }
+   }
+  },
+  {
+   "at": 1760000063000,
+   "text": "Clara kauft Feld 44 für 200.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p3",
+     "tile": 44,
+     "amount": 200
+    }
+   }
+  },
+  {
+   "at": 1760000064000,
+   "text": "Lebensmittelskandal: Camembert & Fils SA verdirbt den Anlegern den Appetit (−30 %).",
+   "msg": {
+    "key": "log.headline.crash.food",
+    "params": {
+     "security": "fr-camembert",
+     "pct": 30
+    }
+   }
+  },
+  {
+   "at": 1760000065000,
+   "text": "Anna würfelt 3+4.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p1",
+     "a": 3,
+     "b": 4
+    }
+   }
+  },
+  {
+   "at": 1760000065000,
+   "text": "Anna zieht eine Karte (ch-nearest-utility).",
+   "msg": {
+    "key": "log.cardDrawn",
+    "params": {
+     "player": "p1",
+     "card": "ch-nearest-utility"
+    }
+   }
+  },
+  {
+   "at": 1760000065000,
+   "text": "Anna zahlt 70 Miete an Ben (Feld 15).",
+   "msg": {
+    "key": "log.rentPaid",
+    "params": {
+     "player": "p1",
+     "amount": 70,
+     "owner": "p2",
+     "tile": 15
+    }
+   }
+  },
+  {
+   "at": 1760000066000,
+   "text": "Anna kauft 1 × SNCF Retards & Cie für 35.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p1",
+     "shares": 1,
+     "security": "fr-sncf",
+     "amount": 35
+    }
+   }
+  },
+  {
+   "at": 1760000068000,
+   "text": "Ben würfelt 2+4.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p2",
+     "a": 2,
+     "b": 4
+    }
+   }
+  },
+  {
+   "at": 1760000068000,
+   "text": "Ben zahlt 21 Miete an Clara (Feld 38).",
+   "msg": {
+    "key": "log.rentPaid",
+    "params": {
+     "player": "p2",
+     "amount": 21,
+     "owner": "p3",
+     "tile": 38
+    }
+   }
+  },
+  {
+   "at": 1760000070000,
+   "text": "Clara würfelt 3+1.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p3",
+     "a": 3,
+     "b": 1
+    }
+   }
+  },
+  {
+   "at": 1760000071000,
+   "text": "Versteigerung von Feld 48.",
+   "msg": {
+    "key": "log.auctionStart",
+    "params": {
+     "tile": 48
+    }
+   }
+  },
+  {
+   "at": 1760000072000,
+   "text": "Anna bietet 120.",
+   "msg": {
+    "key": "log.bid",
+    "params": {
+     "player": "p1",
+     "amount": 120
+    }
+   }
+  },
+  {
+   "at": 1760000073000,
+   "text": "Ben bietet 160.",
+   "msg": {
+    "key": "log.bid",
+    "params": {
+     "player": "p2",
+     "amount": 160
+    }
+   }
+  },
+  {
+   "at": 1760000074000,
+   "text": "Clara bietet 200.",
+   "msg": {
+    "key": "log.bid",
+    "params": {
+     "player": "p3",
+     "amount": 200
+    }
+   }
+  },
+  {
+   "at": 1760000075000,
+   "text": "Anna bietet 240.",
+   "msg": {
+    "key": "log.bid",
+    "params": {
+     "player": "p1",
+     "amount": 240
+    }
+   }
+  },
+  {
+   "at": 1760000076000,
+   "text": "Ben bietet 280.",
+   "msg": {
+    "key": "log.bid",
+    "params": {
+     "player": "p2",
+     "amount": 280
+    }
+   }
+  },
+  {
+   "at": 1760000077000,
+   "text": "Clara bietet 320.",
+   "msg": {
+    "key": "log.bid",
+    "params": {
+     "player": "p3",
+     "amount": 320
+    }
+   }
+  },
+  {
+   "at": 1760000078000,
+   "text": "Anna bietet 360.",
+   "msg": {
+    "key": "log.bid",
+    "params": {
+     "player": "p1",
+     "amount": 360
+    }
+   }
+  },
+  {
+   "at": 1760000079000,
+   "text": "Ben passt.",
+   "msg": {
+    "key": "log.passed",
+    "params": {
+     "player": "p2"
+    }
+   }
+  },
+  {
+   "at": 1760000080000,
+   "text": "Clara bietet 400.",
+   "msg": {
+    "key": "log.bid",
+    "params": {
+     "player": "p3",
+     "amount": 400
+    }
+   }
+  },
+  {
+   "at": 1760000081000,
+   "text": "Anna passt.",
+   "msg": {
+    "key": "log.passed",
+    "params": {
+     "player": "p1"
+    }
+   }
+  },
+  {
+   "at": 1760000081000,
+   "text": "Clara gewinnt Feld 48 für 400.",
+   "msg": {
+    "key": "log.auctionWon",
+    "params": {
+     "player": "p3",
+     "tile": 48,
+     "amount": 400
+    }
+   }
+  },
+  {
+   "at": 1760000082000,
+   "text": "Clara verkauft 3 × Tour-Eiffel Ascenseurs SA für 291.",
+   "msg": {
+    "key": "log.secSold",
+    "params": {
+     "player": "p3",
+     "shares": 3,
+     "security": "fr-eiffel",
+     "amount": 291
+    }
+   }
+  }
+ ]
+}

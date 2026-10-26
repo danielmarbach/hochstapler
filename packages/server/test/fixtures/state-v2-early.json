@@ -1,0 +1,561 @@
+{
+ "id": "fxsecearly",
+ "version": 14,
+ "status": "running",
+ "settings": {
+  "themeId": "de",
+  "startingCash": 2000,
+  "goSalary": 200,
+  "doubleOnGoLanding": false,
+  "turnTimeoutSec": 120,
+  "awayAfterMissedTurns": 2,
+  "auctions": true,
+  "freeParkingJackpot": false,
+  "evenBuild": true,
+  "buildingLimits": {
+   "houses": 48,
+   "hotels": 16,
+   "skyscrapers": 8
+  },
+  "maxRounds": 0,
+  "securities": true,
+  "securitiesLockRounds": 3
+ },
+ "players": [
+  {
+   "id": "p1",
+   "name": "Anna",
+   "color": "#e74c3c",
+   "tokenId": "eiffel",
+   "controller": "away",
+   "botLevel": "normal",
+   "cash": 1605,
+   "position": 9,
+   "inJail": false,
+   "jailTurns": 0,
+   "jailCards": [],
+   "bankrupt": false,
+   "missedTurns": 0,
+   "holdings": [
+    {
+     "secId": "de-wind",
+     "shares": 4,
+     "buyPrice": 70,
+     "boughtRound": 1
+    }
+   ]
+  },
+  {
+   "id": "p2",
+   "name": "Ben",
+   "color": "#3498db",
+   "tokenId": "baguette",
+   "controller": "bot",
+   "botLevel": "normal",
+   "cash": 1380,
+   "position": 21,
+   "inJail": false,
+   "jailTurns": 0,
+   "jailCards": [],
+   "bankrupt": false,
+   "missedTurns": 0,
+   "holdings": [
+    {
+     "secId": "de-beton",
+     "shares": 2,
+     "buyPrice": 125,
+     "boughtRound": 1
+    }
+   ]
+  },
+  {
+   "id": "p3",
+   "name": "Clara",
+   "color": "#2ecc71",
+   "tokenId": "croissant",
+   "controller": "bot",
+   "botLevel": "normal",
+   "cash": 1745,
+   "position": 9,
+   "inJail": false,
+   "jailTurns": 0,
+   "jailCards": [],
+   "bankrupt": false,
+   "missedTurns": 0,
+   "holdings": [
+    {
+     "secId": "de-beton",
+     "shares": 2,
+     "buyPrice": 125,
+     "boughtRound": 1
+    }
+   ]
+  }
+ ],
+ "current": 0,
+ "round": 2,
+ "phase": {
+  "type": "await-roll"
+ },
+ "properties": {
+  "1": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "3": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "5": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "6": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "8": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "9": {
+   "owner": "p1",
+   "level": 0,
+   "mortgaged": false
+  },
+  "10": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "11": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "12": {
+   "owner": "p2",
+   "level": 0,
+   "mortgaged": false
+  },
+  "14": {
+   "owner": "p2",
+   "level": 0,
+   "mortgaged": false
+  },
+  "15": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "16": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "17": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "18": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "19": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "20": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "22": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "23": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "25": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "27": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "29": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "30": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "31": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "32": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "33": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "34": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "35": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "36": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "38": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "40": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "41": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "42": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "43": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "44": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "46": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "47": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "48": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "50": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  },
+  "51": {
+   "owner": null,
+   "level": 0,
+   "mortgaged": false
+  }
+ },
+ "dice": null,
+ "doublesCount": 0,
+ "decks": {
+  "chance": [
+   "ch-g9-last",
+   "ch-go",
+   "ch-nearest-utility",
+   "ch-speeding",
+   "ch-g6-first",
+   "ch-dividend",
+   "ch-g3-first",
+   "ch-jail",
+   "ch-repairs",
+   "ch-nearest-station",
+   "ch-loan",
+   "ch-jail-card",
+   "ch-nearest-station-2",
+   "ch-chairman",
+   "ch-back-3",
+   "ch-station-1"
+  ],
+  "community": [
+   "cc-jail",
+   "cc-stock",
+   "cc-bank-error",
+   "cc-insurance",
+   "cc-doctor",
+   "cc-consultancy",
+   "cc-tax-refund",
+   "cc-jail-card",
+   "cc-go",
+   "cc-beauty",
+   "cc-holiday",
+   "cc-inherit",
+   "cc-birthday",
+   "cc-hospital",
+   "cc-street-repairs",
+   "cc-school"
+  ]
+ },
+ "bank": {
+  "houses": 48,
+  "hotels": 16,
+  "skyscrapers": 8
+ },
+ "market": {
+  "prices": {
+   "de-wiesn": 83,
+   "de-wurst": 50,
+   "de-bahn": 39,
+   "de-wind": 72,
+   "de-fax": 87,
+   "de-beton": 124
+  },
+  "history": {
+   "de-wiesn": [
+    85,
+    83
+   ],
+   "de-wurst": [
+    50,
+    50
+   ],
+   "de-bahn": [
+    38,
+    39
+   ],
+   "de-wind": [
+    70,
+    72
+   ],
+   "de-fax": [
+    90,
+    87
+   ],
+   "de-beton": [
+    125,
+    124
+   ]
+  },
+  "activity": {
+   "builds": 0,
+   "scenicBuilds": 0,
+   "rentPaid": 0,
+   "stationRents": 0,
+   "utilityRents": 0,
+   "bankruptcies": 0
+  }
+ },
+ "freeParkingPot": 0,
+ "trades": [],
+ "deadline": null,
+ "rng": -1818881089,
+ "log": [
+  {
+   "at": 1760000000000,
+   "text": "Spiel gestartet. Anna beginnt.",
+   "msg": {
+    "key": "log.gameStarted",
+    "params": {
+     "player": "p1"
+    }
+   }
+  },
+  {
+   "at": 1760000001000,
+   "text": "Anna würfelt 5+4.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p1",
+     "a": 5,
+     "b": 4
+    }
+   }
+  },
+  {
+   "at": 1760000002000,
+   "text": "Anna kauft Feld 9 für 120.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p1",
+     "tile": 9,
+     "amount": 120
+    }
+   }
+  },
+  {
+   "at": 1760000003000,
+   "text": "Anna kauft 4 × Windrad & Bratwurst Energie AG für 280.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p1",
+     "shares": 4,
+     "security": "de-wind",
+     "amount": 280
+    }
+   }
+  },
+  {
+   "at": 1760000005000,
+   "text": "Ben würfelt 6+6 (Pasch).",
+   "msg": {
+    "key": "log.rolledDoubles",
+    "params": {
+     "player": "p2",
+     "a": 6,
+     "b": 6
+    }
+   }
+  },
+  {
+   "at": 1760000006000,
+   "text": "Ben kauft Feld 12 für 160.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p2",
+     "tile": 12,
+     "amount": 160
+    }
+   }
+  },
+  {
+   "at": 1760000007000,
+   "text": "Ben kauft 2 × Betonburg Immobilien AG für 250.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p2",
+     "shares": 2,
+     "security": "de-beton",
+     "amount": 250
+    }
+   }
+  },
+  {
+   "at": 1760000008000,
+   "text": "Ben würfelt 1+1 (Pasch).",
+   "msg": {
+    "key": "log.rolledDoubles",
+    "params": {
+     "player": "p2",
+     "a": 1,
+     "b": 1
+    }
+   }
+  },
+  {
+   "at": 1760000009000,
+   "text": "Ben kauft Feld 14 für 160.",
+   "msg": {
+    "key": "log.bought",
+    "params": {
+     "player": "p2",
+     "tile": 14,
+     "amount": 160
+    }
+   }
+  },
+  {
+   "at": 1760000010000,
+   "text": "Ben würfelt 6+1.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p2",
+     "a": 6,
+     "b": 1
+    }
+   }
+  },
+  {
+   "at": 1760000010000,
+   "text": "Ben zieht eine Karte (cc-school).",
+   "msg": {
+    "key": "log.cardDrawn",
+    "params": {
+     "player": "p2",
+     "card": "cc-school"
+    }
+   }
+  },
+  {
+   "at": 1760000012000,
+   "text": "Clara würfelt 5+4.",
+   "msg": {
+    "key": "log.rolled",
+    "params": {
+     "player": "p3",
+     "a": 5,
+     "b": 4
+    }
+   }
+  },
+  {
+   "at": 1760000012000,
+   "text": "Clara zahlt 5 Miete an Anna (Feld 9).",
+   "msg": {
+    "key": "log.rentPaid",
+    "params": {
+     "player": "p3",
+     "amount": 5,
+     "owner": "p1",
+     "tile": 9
+    }
+   }
+  },
+  {
+   "at": 1760000013000,
+   "text": "Clara kauft 2 × Betonburg Immobilien AG für 250.",
+   "msg": {
+    "key": "log.secBought",
+    "params": {
+     "player": "p3",
+     "shares": 2,
+     "security": "de-beton",
+     "amount": 250
+    }
+   }
+  }
+ ]
+}

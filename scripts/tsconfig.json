@@ -1,0 +1,1 @@
+{ "extends": "../tsconfig.base.json", "compilerOptions": { "types": ["node"], "noUncheckedIndexedAccess": true, "noImplicitReturns": true, "noFallthroughCasesInSwitch": true }, "include": ["**/*.ts"] }

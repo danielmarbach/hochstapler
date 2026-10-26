@@ -1,0 +1,46 @@
+{
+ "gameId": "fxlobby0",
+ "inviteCode": "FXLOBBY",
+ "status": "lobby",
+ "settings": {
+  "themeId": "fr",
+  "startingCash": 2000,
+  "goSalary": 200,
+  "doubleOnGoLanding": false,
+  "turnTimeoutSec": 120,
+  "awayAfterMissedTurns": 2,
+  "auctions": true,
+  "freeParkingJackpot": false,
+  "evenBuild": true,
+  "buildingLimits": {
+   "houses": 48,
+   "hotels": 16,
+   "skyscrapers": 8
+  },
+  "maxRounds": 0
+ },
+ "seats": [
+  {
+   "playerId": "p1",
+   "name": "Anna",
+   "color": "#e74c3c",
+   "tokenId": "baguette",
+   "kind": "human",
+   "botLevel": "normal",
+   "isHost": true,
+   "tokenHash": "ba95d4ecef39d6f6b2ffb97aee12ac28fb7176881cbeea343705388904a12286"
+  },
+  {
+   "playerId": "p2",
+   "name": "Ben",
+   "color": "#3498db",
+   "tokenId": "beret",
+   "kind": "bot",
+   "botLevel": "easy",
+   "isHost": false,
+   "tokenHash": ""
+  }
+ ],
+ "maxPlayers": 4,
+ "createdAt": 1792833500517
+}

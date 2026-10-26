@@ -1,0 +1,103 @@
+# Hochstapler behind Caddy (docs/DESIGN.md #46; README "Sicherheit" / Hostinger section).
+#
+# Env: DOMAIN (e.g. spiel.example.ch), ACME_EMAIL, UPSTREAM (default app:8787 = compose service name).
+# Without DOMAIN Caddy serves https://localhost with its internal CA (handy for a local dry run).
+#
+# Header policy (defence in depth): the APP is the source of truth for all security headers (exact values are asserted
+# in packages/server/test/hardening.test.ts). Caddy repeats the same values so that responses Caddy generates itself
+# (403/404/405/413/502, timeouts) carry them too; packages/server/test/deploy.test.ts fails when the two drift apart.
+#
+# Validate: docker run --rm -e DOMAIN=example.com -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2 \
+#           caddy validate --config /etc/caddy/Caddyfile
+{
+	email {$ACME_EMAIL:admin@example.com}
+	servers {
+		max_header_size 16KB
+		timeouts {
+			read_header 10s
+			read_body 20s
+			idle 2m
+		}
+	}
+}
+
+(security_headers) {
+	header {
+		-Server
+		-X-Powered-By
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' blob:; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "accelerometer=(), autoplay=(), bluetooth=(), camera=(), clipboard-read=(), display-capture=(), encrypted-media=(), fullscreen=(), gamepad=(), geolocation=(), gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), usb=(), xr-spatial-tracking=(), clipboard-write=(self), web-share=(self)"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-origin"
+		X-Frame-Options "DENY"
+	}
+}
+
+{$DOMAIN:localhost} {
+	# HTTPS (Let's Encrypt, HTTP->HTTPS redirect, renewal) is automatic.
+	import security_headers
+	encode zstd gzip
+
+	# Access log: never the query string (invite codes!), never cookies / player tokens.
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp \?.* ""
+				request>headers>Cookie delete
+				request>headers>Authorization delete
+				request>headers>X-Player-Token delete
+				resp_headers>Set-Cookie delete
+			}
+		}
+	}
+
+	# E2E test-mode routes must never be reachable from outside (the app also refuses to start them in production).
+	@testmode path /api/test /api/test/*
+	respond @testmode 404
+
+	# No dotfiles / dot directories anywhere.
+	@dotfiles path_regexp dotfiles (^|/)\.
+	respond @dotfiles 404
+
+	# Static content and the WebSocket upgrade: GET / HEAD only.
+	@static_write {
+		not path /api /api/*
+		not method GET HEAD
+	}
+	respond @static_write 405
+
+	# API: only the verbs the app uses (the app enforces the per-route allow-list).
+	@api_verbs {
+		path /api /api/*
+		not method GET HEAD POST PATCH DELETE
+	}
+	respond @api_verbs 405
+
+	request_body {
+		max_size 64KB
+	}
+
+	reverse_proxy {$UPSTREAM:app:8787} {
+		# the app checks Origin against Host (WebSocket / CSRF), so Host must reach it unchanged (Caddy default)
+		# exactly one trusted hop: the app takes the rightmost x-forwarded-for entry (TRUST_PROXY_HOPS=1, DESIGN #59); never a
+		# client-supplied value, so the header is replaced instead of appended to
+		header_up X-Forwarded-For {remote_host}
+		health_uri /api/themes
+		health_interval 5s
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 30s
+		}
+	}
+
+	# Errors Caddy produces itself (502/503 while the app restarts) get the same headers and no banner.
+	handle_errors {
+		import security_headers
+		respond "{err.status_code} {err.status_text}" {err.status_code}
+	}
+}

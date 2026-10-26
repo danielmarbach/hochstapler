@@ -1,0 +1,25 @@
+{
+  "name": "hochstapler-apphost",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Aspire AppHost for local development (aspire run); separate from the game's workspaces, never deployed",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24"
+  },
+  "scripts": {
+    "restore": "aspire restore --non-interactive",
+    "typecheck": "npm run restore && tsc -p tsconfig.apphost.json --noEmit",
+    "lint": "npm run restore && eslint apphost.mts"
+  },
+  "dependencies": {
+    "vscode-jsonrpc": "^8.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "eslint": "^10.13.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.72.0"
+  }
+}

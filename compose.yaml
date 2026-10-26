@@ -1,0 +1,33 @@
+# LAN / local play: the app on :8787 (plain HTTP). For a public deployment behind Caddy + HTTPS use
+# deploy/compose.prod.yaml (no published app port). Hardening rationale: docs/DESIGN.md #46.
+services:
+  hochstapler:
+    build:
+      context: .
+      args:
+        # optional: pin the id of this build; empty = derived from the build time (a new image always has a new id)
+        BUILD_ID: ${BUILD_ID:-}
+    image: hochstapler:latest
+    restart: unless-stopped
+    # `docker stop` sends SIGTERM: the server persists all games and tells the players to reconnect (1012);
+    # it exits within a few seconds, 15 s is the safety margin before SIGKILL
+    stop_grace_period: 15s
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    mem_limit: 512m
+    ports:
+      - "8787:8787"
+    environment:
+      BOT_DELAY_MS: "700"
+    volumes:
+      - hochstapler-data:/data
+
+volumes:
+  hochstapler-data:

@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+data
+.env*
+.git
+.claude
+scripts/meshy/raw
+scripts/meshy/state.json
+playwright-report
+test-results
+**/*.sqlite
+e2e
+infra
+docs
+deploy
+apphost

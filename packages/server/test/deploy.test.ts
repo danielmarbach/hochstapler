@@ -1,0 +1,189 @@
+// Deployment files must keep the hardening (docs/DESIGN.md #46): Caddy repeats the app's headers, the containers stay
+// locked down, and the app is never published directly in the production compose file.
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { parse } from "yaml";
+import { z } from "zod";
+import { HSTS, PERMISSIONS_POLICY, buildCsp } from "../src/security.ts";
+
+const repo = resolve(import.meta.dirname, "../../..");
+const read = (rel: string): string => readFileSync(resolve(repo, rel), "utf8");
+
+interface Service {
+  read_only?: boolean;
+  user?: string;
+  cap_drop?: string[];
+  cap_add?: string[];
+  security_opt?: string[];
+  pids_limit?: number;
+  mem_limit?: string;
+  ports?: string[];
+  tmpfs?: string[];
+}
+const services = (rel: string): Record<string, Service> =>
+  (parse(read(rel)) as { services: Record<string, Service> }).services;
+
+describe("deploy/Caddyfile", () => {
+  const caddy = read("deploy/Caddyfile");
+  it("repeats exactly the headers the app sends (HTTPS mode)", () => {
+    expect(caddy).toContain(`Content-Security-Policy "${buildCsp(true)}"`);
+    expect(caddy).toContain(`Permissions-Policy "${PERMISSIONS_POLICY}"`);
+    expect(caddy).toContain(`Strict-Transport-Security "${HSTS}"`);
+    for (const h of [
+      'X-Content-Type-Options "nosniff"',
+      'Referrer-Policy "no-referrer"',
+      'Cross-Origin-Opener-Policy "same-origin"',
+      'Cross-Origin-Resource-Policy "same-origin"',
+      'X-Frame-Options "DENY"',
+      "-Server",
+    ]) {
+      expect(caddy).toContain(h);
+    }
+  });
+  it("blocks test-mode routes, dotfiles and unwanted methods, limits bodies, hides query strings", () => {
+    expect(caddy).toMatch(/path \/api\/test \/api\/test\/\*\s+respond @testmode 404/s);
+    expect(caddy).toContain("@dotfiles path_regexp");
+    expect(caddy).toContain("not method GET HEAD POST PATCH DELETE");
+    expect(caddy).toContain("max_size 64KB");
+    expect(caddy).toContain('request>uri regexp \\?.* ""');
+    expect(caddy).toContain("request>headers>X-Player-Token delete");
+  });
+});
+
+describe("trusted proxy hops (DESIGN #59)", () => {
+  it("every public deployment declares exactly one trusted hop and Caddy overwrites x-forwarded-for", () => {
+    expect(read("infra/main.bicep")).toContain("{ name: 'TRUST_PROXY_HOPS', value: '1' }");
+    const env = (
+      parse(read("deploy/compose.prod.yaml")) as {
+        services: { app: { environment: Record<string, string> } };
+      }
+    ).services.app.environment;
+    expect(env["TRUST_PROXY_HOPS"]).toBe("1");
+    expect(read("deploy/Caddyfile")).toContain("header_up X-Forwarded-For {remote_host}");
+  });
+  it("the LAN compose file trusts no proxy (default 0)", () => {
+    expect(read("compose.yaml")).not.toContain("TRUST_PROXY_HOPS");
+  });
+});
+
+describe("compose files", () => {
+  for (const file of ["compose.yaml", "deploy/compose.prod.yaml"]) {
+    for (const [name, svc] of Object.entries(services(file))) {
+      it(`${file}: ${name} is locked down`, () => {
+        expect(svc.read_only).toBe(true);
+        expect(svc.cap_drop).toEqual(["ALL"]);
+        expect(svc.security_opt).toContain("no-new-privileges:true");
+        expect(svc.pids_limit).toBeGreaterThan(0);
+        expect(svc.mem_limit).toBeTruthy();
+        expect(svc.tmpfs?.some((t) => t.startsWith("/tmp"))).toBe(true);
+        if (name !== "caddy") {
+          expect(svc.user).toBe("1000:1000");
+          expect(svc.cap_add).toBeUndefined();
+        }
+      });
+    }
+  }
+  it("production: only Caddy publishes ports (80/443) and may bind low ports", () => {
+    const { app, caddy } = services("deploy/compose.prod.yaml");
+    expect(app?.ports).toBeUndefined();
+    expect(caddy?.ports).toEqual(["80:80", "443:443", "443:443/udp"]);
+    expect(caddy?.cap_add).toEqual(["NET_BIND_SERVICE"]);
+  });
+});
+
+describe("Dockerfile", () => {
+  const docker = read("Dockerfile");
+  it("pins the base image by digest, runs non-root and keeps the healthcheck", () => {
+    expect(docker).toMatch(
+      /^ARG NODE_IMAGE=node:\d+\.\d+\.\d+-bookworm-slim@sha256:[0-9a-f]{64}$/m,
+    );
+    expect(docker).toMatch(/^USER 1000:1000$/m);
+    expect(docker).toContain("HEALTHCHECK");
+    expect(docker).toContain("npm ci --omit=dev");
+  });
+
+  it("copies the workspace-nested production dependencies into the runtime image", () => {
+    // npm keeps packages with (optional) peer dependencies, e.g. altcha-lib, in packages/server/node_modules; the
+    // runtime stage copies only what it names, so a nested dependency that is not copied is missing in production
+    const lock = z
+      .object({ packages: z.record(z.string(), z.unknown()) })
+      .parse(JSON.parse(read("package-lock.json")));
+    const nested = Object.keys(lock.packages).filter((k) =>
+      k.startsWith("packages/server/node_modules/"),
+    );
+    if (nested.length > 0) {
+      expect(docker).toContain(
+        "COPY --from=deps /app/packages/server/node_modules packages/server/node_modules",
+      );
+    }
+  });
+});
+
+describe("infra/main.bicep (Azure Container Apps, DESIGN #50-#52)", () => {
+  const bicep = read("infra/main.bicep");
+  it("keeps the single-writer and hardening settings", () => {
+    expect(bicep).toContain("activeRevisionsMode: 'Multiple'");
+    expect(bicep).toContain("scale: { minReplicas: 1, maxReplicas: 1 }");
+    expect(bicep).toContain("allowInsecure: false");
+    expect(bicep).toContain("adminUserEnabled: false");
+    expect(bicep).toContain("minimumTlsVersion: 'TLS1_2'");
+    expect(bicep).toContain("allowBlobPublicAccess: false");
+    expect(bicep).toMatch(/mountOptions: '[^']*\buid=1000,gid=1000\b/);
+    expect(bicep).toMatch(/mountOptions: '[^']*\bnobrl\b/);
+    expect(bicep).toContain("{ name: 'SQLITE_JOURNAL_MODE', value: 'delete' }");
+    expect(bicep).toContain("{ name: 'HTTPS_ONLY', value: '1' }");
+  });
+  it("never enables test mode and never outputs secrets", () => {
+    expect(bicep).not.toContain("POLY_TEST_MODE");
+    for (const line of bicep.split("\n").filter((l) => l.startsWith("output "))) {
+      expect(line).not.toMatch(/key|secret|password|listKeys/i);
+    }
+  });
+  it("custom domain is optional, staged and uses a free managed certificate", () => {
+    expect(bicep).toContain("param customDomain string = ''");
+    expect(bicep).toMatch(
+      /@allowed\(\['hostname', 'certificate', 'bind'\]\)\s*@description\([^\n]*\)\s*param customDomainStage string = 'hostname'/,
+    );
+    expect(bicep).toContain("Microsoft.App/managedEnvironments/managedCertificates@");
+    expect(bicep).toContain("domainControlValidation: 'CNAME'");
+    expect(bicep).toContain("bindingType: 'SniEnabled'");
+    expect(bicep).toContain("bindingType: 'Disabled'");
+    expect(bicep).toContain("certificateId: certId");
+    // no domain => no customDomains on the ingress and no certificate (template unchanged)
+    expect(bicep).toContain("var customDomains = !hasDomain ? null");
+    expect(bicep).toMatch(
+      /managedCert[^\n]*= if \(deployApp && hasDomain && customDomainStage == 'certificate'\)/,
+    );
+    // the real domain is configuration, never hard-coded in the template or its parameters
+    expect(bicep).not.toMatch(/openplace/);
+    expect(read("infra/main.bicepparam")).not.toMatch(/customDomain/);
+    expect(read("infra/main.bicepparam")).toContain("param dataDir = '/data/v2'");
+  });
+  it("deploy script checks DNS first, never fails the deploy for the domain and guards the single writer", () => {
+    const script = read("scripts/azure-deploy.sh");
+    expect(script).toContain("AZ_CUSTOM_DOMAIN");
+    expect(script).toContain("asuid.");
+    expect(script).toContain("customDomainVerificationId");
+    expect(script).toContain("assert_single_revision");
+    expect(read(".env.azure.example")).toContain("# AZ_CUSTOM_DOMAIN=game.example.com");
+  });
+});
+
+describe("telemetry deployment (DESIGN #54)", () => {
+  const bicep = read("infra/main.bicep");
+  it("routes traces through the managed agent into a workspace-based Application Insights and samples", () => {
+    expect(bicep).toContain("WorkspaceResourceId: logs.id");
+    expect(bicep).toContain("IngestionMode: 'LogAnalytics'");
+    expect(bicep).toContain("tracesConfiguration: { destinations: ['appInsights'] }");
+    expect(bicep).toContain("{ name: 'OTEL_TRACES_SAMPLER', value: 'parentbased_traceidratio' }");
+    expect(bicep).toContain("param traceSampleRatio string = '0.2'");
+    // the cost cap of the workspace stays in place
+    expect(bicep).toContain("workspaceCapping: { dailyQuotaGb: json(logDailyCapGb) }");
+    // the connection string is never an output
+    expect(bicep).not.toMatch(/output .*(ConnectionString|InstrumentationKey)/i);
+  });
+  it("compose.yaml has no telemetry dashboard any more: local telemetry is the Aspire AppHost (DESIGN #71)", () => {
+    expect(Object.keys(services("compose.yaml"))).toEqual(["hochstapler"]);
+  });
+});

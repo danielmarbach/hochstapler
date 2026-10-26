@@ -1,0 +1,64 @@
+{
+ "gameId": "fxchat",
+ "inviteCode": "FXCHAT",
+ "status": "running",
+ "settings": {
+  "themeId": "fr",
+  "startingCash": 2000,
+  "goSalary": 200,
+  "doubleOnGoLanding": false,
+  "turnTimeoutSec": 60,
+  "awayAfterMissedTurns": 2,
+  "auctions": true,
+  "freeParkingJackpot": false,
+  "evenBuild": true,
+  "buildingLimits": {
+   "houses": 48,
+   "hotels": 16,
+   "skyscrapers": 8
+  },
+  "maxRounds": 0,
+  "securities": true,
+  "securitiesLockRounds": 2
+ },
+ "seats": [
+  {
+   "playerId": "p1",
+   "name": "Anna",
+   "color": "#e74c3c",
+   "tokenId": "eiffel",
+   "kind": "human",
+   "botLevel": "normal",
+   "isHost": true,
+   "tokenHash": "21e5e21642b5f12a719b9980e7416b0528eda37b03d0d1fa26bc7ca6c3f9cd60"
+  },
+  {
+   "playerId": "p2",
+   "name": "Ben",
+   "color": "#3498db",
+   "tokenId": "baguette",
+   "kind": "bot",
+   "botLevel": "normal",
+   "isHost": false,
+   "tokenHash": ""
+  },
+  {
+   "playerId": "p3",
+   "name": "Clara",
+   "color": "#2ecc71",
+   "tokenId": "croissant",
+   "kind": "bot",
+   "botLevel": "normal",
+   "isHost": false,
+   "tokenHash": ""
+  }
+ ],
+ "maxPlayers": 4,
+ "createdAt": 1760000000000,
+ "chat": {
+  "mode": "quick",
+  "muted": [
+   "p2"
+  ]
+ }
+}

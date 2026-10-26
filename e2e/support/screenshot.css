@@ -1,0 +1,10 @@
+/* Visual regression: the WebGL scene is not pixel-stable (software rendering), so it is hidden. The flat sky colour
+   of .stage/.game stays, everything above the canvas (HUD, forms, postcards) is compared. */
+canvas {
+  visibility: hidden !important;
+}
+
+/* the paper grain is SVG noise: pixel-stable, but it makes every PNG ~5x larger */
+:root {
+  --grain: none !important;
+}

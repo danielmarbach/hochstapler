@@ -1,0 +1,254 @@
+{
+  "house": {
+    "file": "house.glb",
+    "scale": 0.6406,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "skyscraper": {
+    "file": "skyscraper.glb",
+    "scale": 0.5268,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "hotel": {
+    "file": "hotel.glb",
+    "scale": 0.5295,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "landmark-matterhorn": {
+    "file": "landmark-matterhorn.glb",
+    "scale": 0.5265,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "landmark-eiffel": {
+    "file": "landmark-eiffel.glb",
+    "scale": 0.5274,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "landmark-brandenburg": {
+    "file": "landmark-brandenburg.glb",
+    "scale": 0.527,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "skyscraper-prime-tower": {
+    "file": "skyscraper-prime-tower.glb",
+    "scale": 0.5265,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "skyscraper-la-defense": {
+    "file": "skyscraper-la-defense.glb",
+    "scale": 0.5264,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "skyscraper-fernsehturm": {
+    "file": "skyscraper-fernsehturm.glb",
+    "scale": 0.5264,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "landmark-colosseum": {
+    "file": "landmark-colosseum.glb",
+    "scale": 0.5286,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-cow": {
+    "file": "token-cow.glb",
+    "scale": 0.5275,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-swiss-knife": {
+    "file": "token-swiss-knife.glb",
+    "scale": 0.5268,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-cheese": {
+    "file": "token-cheese.glb",
+    "scale": 0.5268,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-watch": {
+    "file": "token-watch.glb",
+    "scale": 0.5262,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-chocolate": {
+    "file": "token-chocolate.glb",
+    "scale": 0.5273,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-st-bernard": {
+    "file": "token-st-bernard.glb",
+    "scale": 0.5269,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-gondola": {
+    "file": "token-gondola.glb",
+    "scale": 0.5265,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-baguette": {
+    "file": "token-baguette.glb",
+    "scale": 0.5272,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-beret": {
+    "file": "token-beret.glb",
+    "scale": 0.5266,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-croissant": {
+    "file": "token-croissant.glb",
+    "scale": 0.527,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-rooster": {
+    "file": "token-rooster.glb",
+    "scale": 0.527,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-eiffel": {
+    "file": "token-eiffel.glb",
+    "scale": 0.527,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-wine-bottle": {
+    "file": "token-wine-bottle.glb",
+    "scale": 0.5267,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-perfume": {
+    "file": "token-perfume.glb",
+    "scale": 0.5266,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-scooter": {
+    "file": "token-scooter.glb",
+    "scale": 0.5272,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-pretzel": {
+    "file": "token-pretzel.glb",
+    "scale": 0.527,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-beer-stein": {
+    "file": "token-beer-stein.glb",
+    "scale": 0.5266,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-beetle-car": {
+    "file": "token-beetle-car.glb",
+    "scale": 0.5277,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-cuckoo-clock": {
+    "file": "token-cuckoo-clock.glb",
+    "scale": 0.527,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-bratwurst": {
+    "file": "token-bratwurst.glb",
+    "scale": 0.5273,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-garden-gnome": {
+    "file": "token-garden-gnome.glb",
+    "scale": 0.5269,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-pickelhaube": {
+    "file": "token-pickelhaube.glb",
+    "scale": 0.5269,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-vespa": {
+    "file": "token-vespa.glb",
+    "scale": 0.5271,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-train": {
+    "file": "token-train.glb",
+    "scale": 0.5266,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-pizza": {
+    "file": "token-pizza.glb",
+    "scale": 0.5566,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-espresso": {
+    "file": "token-espresso.glb",
+    "scale": 0.5273,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-gondola-venice": {
+    "file": "token-gondola-venice.glb",
+    "scale": 0.5272,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-colosseum": {
+    "file": "token-colosseum.glb",
+    "scale": 0.5282,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-gelato": {
+    "file": "token-gelato.glb",
+    "scale": 0.5271,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-pasta": {
+    "file": "token-pasta.glb",
+    "scale": 0.5278,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-tower-pisa": {
+    "file": "token-tower-pisa.glb",
+    "scale": 0.5274,
+    "rotationY": 0,
+    "yOffset": 0
+  },
+  "token-fondue": {
+    "file": "token-fondue.glb",
+    "scale": 0.527,
+    "rotationY": 0,
+    "yOffset": 0
+  }
+}

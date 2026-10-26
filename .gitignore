@@ -1,0 +1,14 @@
+node_modules/
+dist/
+data/
+*.sqlite
+.DS_Store
+.env.local
+.env.azure
+scripts/meshy/state.json
+scripts/meshy/raw/
+playwright-report/
+test-results/
+.features-gen/
+.claude/worktrees/
+.Dockerfile.acr
