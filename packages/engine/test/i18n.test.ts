@@ -231,6 +231,15 @@ describe("theme texts", () => {
         }
       });
 
+      // DESIGN #88: the con-man jokes must not grow past the longest card the popup was laid out for
+      it("keeps every card text short enough for the card popup", () => {
+        for (const lang of ["de", "en", "gsw", "fr", "it"] as const) {
+          for (const [id, text] of Object.entries(themeText(theme, lang).cardTexts)) {
+            expect(text.length, `${lang}/${id}: ${text}`).toBeLessThanOrEqual(165);
+          }
+        }
+      });
+
       it("formats currency like the German text", () => {
         const money = defined(theme.cardTexts["ch-dividend"], "de").match(/(CHF 50|50 €)/)?.[0];
         for (const lang of ["en", "fr", "it"] as const) {
