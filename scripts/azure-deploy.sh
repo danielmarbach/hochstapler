@@ -9,15 +9,22 @@
 # Needs AZ_SUBSCRIPTION (environment or the gitignored .env.azure, template .env.azure.example).
 # Optional AZ_CUSTOM_DOMAIN: custom domain with a free managed certificate (DNS is checked first, README, DESIGN #53).
 #
-# Update strategy (blue/green with the writer lease, DESIGN #89; replaces the stop-first rollout of #52): the app writes
-# ONE SQLite file on Azure Files (mounted with `nobrl`, no byte-range locks), and only the holder of the writer lease (an
-# Azure Blob lease) opens it. A new revision starts with 0 % traffic and asks the running one to hand over: the old one
-# drains (persists, closes the database, releases the lease, sends its players away with 4503), the new one takes the
-# lease and becomes ready. Then the traffic moves to the new revision and the old one is deactivated: a blip of seconds.
-#   1. new revision with 0 % traffic (Multiple revision mode, 1 replica)   2. wait until it is ready (= holds the lease)
-#   3. 100 % traffic to it   4. deactivate the old revision   5. assert a single active revision
-# Fallback: not ready within HANDOVER_TIMEOUT_SEC (default 240) -> deactivate the old revision anyway (it releases the
-# lease on SIGTERM, or the break period runs out), shift the traffic, wait again, and report it.
+# Update strategy (blue/green with the writer lease, DESIGN #89, traffic first #91; replaces the stop-first rollout of
+# #52): the app writes ONE SQLite file on Azure Files (mounted with `nobrl`, no byte-range locks), and only the holder of
+# the writer lease (an Azure Blob lease) opens it. A new revision starts with 0 % traffic in standby
+# (WRITER_LEASE_HANDOVER=on-traffic: it asks the running one to hand over only on its first real request). The traffic
+# moves to it first, then a request starts the handover: the old one drains (persists, closes the database, releases the
+# lease, sends its players away with 4503) and the new one takes the lease: the players' gap is the handover itself.
+#   1. new revision with 0 % traffic (Multiple revision mode, 1 replica)
+#   2. wait until it is up in standby (provisioned, running, replica ready, /api/live 200; STANDBY_TIMEOUT_SEC, default 300)
+#   3. 100 % traffic to it   4. trigger: GET / on its own FQDN
+#   5. wait until /api/ready is 200 (= holds the lease; HANDOVER_TIMEOUT_SEC, default 240)
+#   6. deactivate the old revision   7. assert a single active revision
+# Not up in standby -> the new revision is deactivated, the traffic never moved: "rollout failed, previous revision kept".
+# Not ready in time -> if the old revision is ready again (it rejoins after 2 x the lease duration) or becomes ready within
+# ROLLBACK_WAIT_SEC (default 60): traffic back to it, new revision deactivated, "rollout failed, previous revision kept",
+# exit 1. Otherwise the hard fallback: deactivate the old revision (it releases the lease on SIGTERM, or the break period
+# runs out), wait for the new one again, report "handover: fallback".
 # One-time migration: a running revision WITHOUT WRITER_LEASE=azure-blob does not know the lease, so it is stopped
 # first (the old behaviour) before the new revision starts.
 #
@@ -34,7 +41,7 @@ for arg in "$@"; do
     --infra-only) INFRA_ONLY=1 ;;
     --yes | -y) ASSUME_YES=1 ;;
     -h | --help)
-      sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -63,6 +70,8 @@ DOMAIN=""           # domain handed to Bicep (empty = none, or DNS not ready)
 DOMAIN_STAGE="hostname"
 TRAFFIC_REVISION="" # blue/green: the running revision keeps all traffic while the new one starts (empty = latest)
 HANDOVER_TIMEOUT_SEC="${HANDOVER_TIMEOUT_SEC:-240}"
+STANDBY_TIMEOUT_SEC="${STANDBY_TIMEOUT_SEC:-300}"
+ROLLBACK_WAIT_SEC="${ROLLBACK_WAIT_SEC:-60}"
 
 log() { printf '==> %s\n' "$*"; }
 die() {
@@ -237,22 +246,40 @@ stop_revisions() { # deactivate the given revisions and wait until none of their
   done
   die "Revision(s) $* still running after 2 minutes."
 }
-revision_ready() { # 200 from /api/ready on the revision's own FQDN = this revision holds the writer lease and serves
-  local fqdn code
-  fqdn="$(azq containerapp revision show -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$1" --query properties.fqdn -o tsv 2> /dev/null || true)"
-  [ -n "$fqdn" ] || return 1
-  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "https://$fqdn/api/ready" || true)"
-  [ "$code" = "200" ]
+revision_fqdn() {
+  azq containerapp revision show -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$1" --query properties.fqdn -o tsv 2> /dev/null || true
 }
-wait_ready() { # wait_ready <revision> <seconds>
+revision_get() { # revision_get <revision> <path>: HTTP status of GET https://<revision fqdn><path> ('' without an fqdn)
+  local fqdn
+  fqdn="$(revision_fqdn "$1")"
+  [ -n "$fqdn" ] || return 0
+  curl -s -o /dev/null -w '%{http_code}' --max-time 5 "https://$fqdn$2" || true
+}
+revision_ready() { # 200 from /api/ready on the revision's own FQDN = this revision holds the writer lease and serves
+  [ "$(revision_get "$1" /api/ready)" = "200" ]
+}
+revision_standby() { # up and answering, lease or not: provisioned, running, replica ready, /api/live 200
+  # (never /api/themes or / here: a real request would start the handover before the traffic is shifted, DESIGN #91)
+  local prov run ready
+  prov="$(azq containerapp revision show -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$1" --query properties.provisioningState -o tsv 2> /dev/null || true)"
+  run="$(azq containerapp revision show -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$1" --query properties.runningState -o tsv 2> /dev/null || true)"
+  ready="$(azq containerapp replica list -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$1" \
+    --query "[?properties.containers[0].ready] | length(@)" -o tsv 2> /dev/null || true)"
+  [ "$prov" = "Provisioned" ] || return 1
+  case "$run" in Running*) ;; *) return 1 ;; esac
+  [ "${ready:-0}" -ge 1 ] 2> /dev/null || return 1
+  [ "$(revision_get "$1" /api/live)" = "200" ]
+}
+wait_for() { # wait_for <check> <revision> <seconds>
   local waited=0
-  while [ "$waited" -lt "$2" ]; do
-    revision_ready "$1" && return 0
+  while [ "$waited" -lt "$3" ]; do
+    "$1" "$2" && return 0
     sleep 3
     waited=$((waited + 3))
   done
   return 1
 }
+wait_ready() { wait_for revision_ready "$1" "$2"; } # wait_ready <revision> <seconds>
 shift_traffic() {
   azq containerapp ingress traffic set -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision-weight "$1=100" > /dev/null
 }
@@ -297,25 +324,63 @@ if [ "$(azq containerapp revision show -g "$RESOURCE_GROUP" -n "$APP_NAME" --rev
 fi
 PREVIOUS=""
 for rev in $OLD; do [ "$rev" = "$LATEST" ] || PREVIOUS="$PREVIOUS $rev"; done
+logs_hint() { printf 'Logs: az containerapp logs show -g %s -n %s --revision %s --type console --tail 100' "$RESOURCE_GROUP" "$APP_NAME" "$1"; }
+first_ready() { # first_ready <revision...>: the first one that holds the lease and serves ('' = none)
+  local rev
+  for rev in "$@"; do
+    if revision_ready "$rev"; then
+      printf '%s' "$rev"
+      return 0
+    fi
+  done
+}
 HANDOVER="none"
 if [ -z "$PREVIOUS" ]; then
   log "No other revision to hand over from"
   shift_traffic "$LATEST"
-elif wait_ready "$LATEST" "$HANDOVER_TIMEOUT_SEC"; then
-  log "Revision $LATEST holds the writer lease; shifting 100 % traffic to it"
-  shift_traffic "$LATEST"
-  log "Deactivating the previous revision(s):$PREVIOUS"
-  # shellcheck disable=SC2086
-  stop_revisions $PREVIOUS
-  HANDOVER="blue-green"
 else
-  echo "WARNING: revision $LATEST did not become ready within ${HANDOVER_TIMEOUT_SEC} s; falling back to stopping the previous revision(s) first (outage until the new one holds the lease)." >&2
-  # shellcheck disable=SC2086
-  stop_revisions $PREVIOUS
+  # traffic first (DESIGN #91): the new revision waits in standby and asks for the lease only on its first real request
+  log "Waiting until revision $LATEST is up in standby (/api/live)"
+  if ! wait_for revision_standby "$LATEST" "$STANDBY_TIMEOUT_SEC"; then
+    azq containerapp revision deactivate -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$LATEST" > /dev/null
+    die "rollout failed, previous revision kept: $LATEST did not come up within ${STANDBY_TIMEOUT_SEC} s and was deactivated; the traffic stayed on$PREVIOUS. $(logs_hint "$LATEST")"
+  fi
+  log "Shifting 100 % traffic to $LATEST (still in standby)"
   shift_traffic "$LATEST"
-  wait_ready "$LATEST" "$HANDOVER_TIMEOUT_SEC" \
-    || die "Revision $LATEST did not become ready after the fallback either. Logs: az containerapp logs show -g $RESOURCE_GROUP -n $APP_NAME --type console --tail 100"
-  HANDOVER="fallback"
+  HANDOVER_START=$SECONDS
+  log "Triggering the handover: GET / on $LATEST (HTTP $(revision_get "$LATEST" /))"
+  if wait_ready "$LATEST" "$HANDOVER_TIMEOUT_SEC"; then
+    log "Revision $LATEST holds the writer lease; handover took $((SECONDS - HANDOVER_START)) s (traffic shift to ready)"
+    log "Deactivating the previous revision(s):$PREVIOUS"
+    # shellcheck disable=SC2086
+    stop_revisions $PREVIOUS
+    HANDOVER="blue-green"
+  else
+    echo "WARNING: revision $LATEST did not take the writer lease over within ${HANDOVER_TIMEOUT_SEC} s." >&2
+    # a former holder rejoins after its rejoin delay (2 x lease duration): give it a short while
+    # shellcheck disable=SC2086
+    KEEP="$(first_ready $PREVIOUS)"
+    waited=0
+    while [ -z "$KEEP" ] && [ "$waited" -lt "$ROLLBACK_WAIT_SEC" ]; do
+      sleep 3
+      waited=$((waited + 3))
+      # shellcheck disable=SC2086
+      KEEP="$(first_ready $PREVIOUS)"
+    done
+    if [ -n "$KEEP" ]; then
+      log "Revision $KEEP holds the writer lease again: shifting the traffic back and deactivating $LATEST"
+      shift_traffic "$KEEP"
+      stop_revisions "$LATEST"
+      die "rollout failed, previous revision kept: $KEEP serves again, $LATEST was deactivated. $(logs_hint "$LATEST")"
+    fi
+    echo "WARNING: no previous revision is ready either; falling back to stopping the previous revision(s) first (outage until $LATEST holds the lease)." >&2
+    # shellcheck disable=SC2086
+    stop_revisions $PREVIOUS
+    shift_traffic "$LATEST"
+    wait_ready "$LATEST" "$HANDOVER_TIMEOUT_SEC" \
+      || die "Revision $LATEST did not become ready after the fallback either. $(logs_hint "$LATEST")"
+    HANDOVER="fallback"
+  fi
 fi
 assert_single_revision
 

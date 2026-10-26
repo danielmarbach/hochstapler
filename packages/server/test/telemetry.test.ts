@@ -555,6 +555,44 @@ describe("telemetry: writer lease", () => {
     await a.stop();
   });
 
+  it("on-traffic: logs the first real request that asks the holder to hand over (not the probes)", async () => {
+    const { MemoryLease, MemoryLeaseStore } = await import("../src/lease/memory.ts");
+    const store = new MemoryLeaseStore();
+    const timing = { durationMs: 3000, renewIntervalMs: 200, safetyMarginMs: 1000 };
+    const a = await startTestServer({
+      writerLease: new MemoryLease(store, timing, 20),
+      leaseRejoinDelayMs: 60_000,
+      leaseHandover: "on-traffic",
+    });
+    const b = await startTestServer(
+      {
+        writerLease: new MemoryLease(store, timing, 20),
+        waitUntilActive: false,
+        leaseHandover: "on-traffic",
+      },
+      a.dir,
+    );
+    const before = otel.logs().length;
+    await fetch(`${b.base}/api/live`);
+    await fetch(`${b.base}/api/themes`, { headers: { "user-agent": "kube-probe/1.31" } });
+    expect(
+      otel
+        .logs()
+        .slice(before)
+        .map((r) => r.body),
+    ).not.toContain("writer lease handover triggered");
+    await fetch(`${b.base}/`);
+    await b.srv.whenActive();
+    const triggered = otel
+      .logs()
+      .slice(before)
+      .filter((r) => r.body === "writer lease handover triggered");
+    expect(triggered).toHaveLength(1);
+    expect(triggered[0]?.attributes).toEqual({ "lease.kind": "memory" });
+    await b.stop();
+    await a.stop();
+  });
+
   it("a renewal that fails logs a warning and the loss an error record", async () => {
     const { MemoryLease, MemoryLeaseStore } = await import("../src/lease/memory.ts");
     const lease = new MemoryLease(

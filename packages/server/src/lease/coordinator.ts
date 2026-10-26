@@ -5,7 +5,10 @@
 //                                                              +--lost / deadline passed--> fence() --> standby
 //
 // - standby:   no database; HTTP static files and liveness work, everything else answers 503 / WS close 4503.
-// - acquiring: waiting for the lease (polling). The FIRST round of a fresh process asks the holder to hand over.
+// - acquiring: waiting for the lease (polling). A fresh process (one that never held the lease) asks the holder to hand
+//              over: at once (`requestHandover: true`) or on its first real request (`"on-traffic"`, DESIGN #91: the
+//              deploy script shifts the traffic first, so the handover starts when the players already arrive here).
+//              A former holder never asks: it only takes a free or expired lease (no ping-pong between two revisions).
 // - active:    database open, renewing every `renewIntervalMs`. `canWrite()` is the fence: true only until
 //              (send time of the last successful renewal) + durationMs - safetyMarginMs.
 // - draining:  a newcomer asked for the lease. drain() stops accepting, finishes in-flight work, persists, pauses timers
@@ -37,6 +40,8 @@ export type LeaseEvent =
   | { type: "acquired"; waitedMs: number }
   | { type: "renew-failed"; result: "lost" | "timeout" }
   | { type: "handover-requested" }
+  /** a fresh process got its first real request and asked the holder to hand over (on-traffic mode) */
+  | { type: "handover-triggered" }
   | { type: "handover-completed"; drainMs: number }
   | { type: "lost" }
   | { type: "activate-failed"; error: Error };
@@ -65,6 +70,12 @@ export function validateTiming(t: LeaseTiming): void {
 
 type HoldOutcome = "handover" | "lost" | "stop";
 
+/**
+ * When a fresh process asks the current holder to hand over: `true` = at once, `"on-traffic"` = on its first real
+ * request (`noteTraffic()`), `false` = never (it waits for a free or expired lease).
+ */
+export type HandoverRequest = boolean | "on-traffic";
+
 export class WriterCoordinator {
   private current: WriterState = "standby";
   private readonly lease: WriterLease;
@@ -87,6 +98,16 @@ export class WriterCoordinator {
   private crashed = false;
   /** counts tenures, so a renewal loop of an earlier tenure can never renew a later one */
   private tenure = 0;
+  /** on-traffic mode (set by start) */
+  private onTraffic = false;
+  /** this process has held the lease at least once: it never asks a holder to hand over again */
+  private everHeld = false;
+  /** the first real request has arrived (on-traffic mode) */
+  private trafficSeen = false;
+  /** the holder was asked already (once per process) */
+  private handoverAsked = false;
+  /** interrupts the current acquire wait so the loop can ask the holder first */
+  private interruptAcquire: (() => void) | null = null;
 
   constructor(lease: WriterLease, hooks: WriterHooks, opts: CoordinatorOptions = {}) {
     validateTiming(lease.timing);
@@ -131,11 +152,55 @@ export class WriterCoordinator {
     return false;
   }
 
-  /** Start competing for the lease. `requestHandover`: a fresh process asks the current holder to hand over. */
-  start(opts: { requestHandover: boolean }): void {
-    this.loop ??= this.run(opts.requestHandover).catch((e: unknown) => {
+  /** Start competing for the lease. `requestHandover`: if and when a fresh process asks the holder to hand over. */
+  start(opts: { requestHandover: HandoverRequest }): void {
+    if (this.loop) return;
+    this.onTraffic = opts.requestHandover === "on-traffic";
+    this.loop = this.run(opts.requestHandover === true).catch((e: unknown) => {
       if (!(e instanceof AbortedError)) throw e;
     });
+  }
+
+  /**
+   * A real request reached this process (not a health probe). In on-traffic mode the first one makes a fresh process
+   * ask the holder to hand over; otherwise (immediate mode, a former holder, already asked) it changes nothing.
+   */
+  noteTraffic(): void {
+    if (this.trafficSeen) return;
+    this.trafficSeen = true;
+    if (this.handoverDue()) this.interruptAcquire?.();
+  }
+
+  private handoverDue(): boolean {
+    return (
+      this.onTraffic && this.trafficSeen && !this.everHeld && !this.handoverAsked && !this.stopping
+    );
+  }
+
+  /**
+   * lease.acquire(), interrupted once by the first real request in on-traffic mode: the wait is aborted, the holder is
+   * asked, then the wait goes on. Never in parallel with a pending acquisition (it could break our own fresh lease).
+   */
+  private async acquireLease(): Promise<void> {
+    for (;;) {
+      if (this.handoverDue()) {
+        this.handoverAsked = true;
+        this.onEvent({ type: "handover-triggered" });
+        await this.abortable(this.lease.requestHandover());
+      }
+      const round = new AbortController();
+      this.interruptAcquire = () => round.abort();
+      const acquired = await attempt("lease:acquire", () =>
+        this.lease.acquire(AbortSignal.any([this.abort.signal, round.signal])),
+      );
+      this.interruptAcquire = null;
+      if (acquired.ok) {
+        this.everHeld = true;
+        return;
+      }
+      // only the trigger's interruption goes round again; a stop (or anything else) ends the loop as before
+      if (this.abort.signal.aborted || !round.signal.aborted) throw acquired.error;
+    }
   }
 
   /** Graceful shutdown: drain and release when holding (no disconnect: the server closes its sockets itself). */
@@ -227,10 +292,10 @@ export class WriterCoordinator {
     while (!this.stopping) {
       await this.pause(wait);
       this.setState("acquiring");
-      if (askHolder) await this.abortable(this.lease.requestHandover());
+      if (askHolder && !this.everHeld) await this.abortable(this.lease.requestHandover());
       askHolder = false;
       const t0 = this.clock();
-      await this.lease.acquire(this.abort.signal);
+      await this.acquireLease();
       // learn when the lease was (re)confirmed: the fence counts from the moment that renewal was sent
       this.validUntil = Infinity; // budget for the confirming renewal = one lease duration
       const confirm = await this.renewOnce();

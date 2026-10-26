@@ -22,6 +22,8 @@ function fakeBlobService() {
     exists: false,
     lease: null as string | null,
     breaking: false,
+    /** the break period ran out: the lease is broken (renewals fail the same way, only Get Blob Properties tells apart) */
+    broken: false,
     /** next lease responses to force, e.g. a 500 */
     forced: [] as { status: number; code?: string }[],
   };
@@ -38,6 +40,19 @@ function fakeBlobService() {
     seen.push({ method: init?.method ?? "GET", url, headers });
     const forced = state.forced.shift();
     if (forced) return Promise.resolve(reply(forced.status, forced.code));
+    if (!url.includes("comp=lease") && init?.method === "HEAD") {
+      if (!state.exists) return Promise.resolve(reply(404, "BlobNotFound"));
+      const leaseState = state.broken
+        ? "broken"
+        : state.breaking
+          ? "breaking"
+          : state.lease === null
+            ? "available"
+            : "leased";
+      return Promise.resolve(
+        new Response(null, { status: 200, headers: { "x-ms-lease-state": leaseState } }),
+      );
+    }
     if (!url.includes("comp=lease")) {
       if (headers["if-none-match"] !== "*") return Promise.resolve(reply(400));
       if (state.exists) return Promise.resolve(reply(409, "BlobAlreadyExists"));
@@ -59,7 +74,9 @@ function fakeBlobService() {
       case "renew":
         if (state.lease !== id)
           return Promise.resolve(reply(409, "LeaseIdMismatchWithLeaseOperation"));
-        if (state.breaking) return Promise.resolve(reply(409, "LeaseIsBreakingAndCannotBeChanged"));
+        // what Azure answers while the lease is breaking AND once it is broken (seen live on 2026-10-26)
+        if (state.breaking || state.broken)
+          return Promise.resolve(reply(409, "LeaseIsBrokenAndCannotBeRenewed"));
         return Promise.resolve(reply(200));
       case "release":
         if (state.lease !== id)
@@ -154,6 +171,16 @@ describe("AzureBlobLease", () => {
     await holder.release();
     await vi.advanceTimersByTimeAsync(200);
     expect(done).toBe(true);
+  });
+
+  it("a renewal refused because the break period already ran out is lost, not a handover", async () => {
+    const svc = fakeBlobService();
+    const holder = lease(svc);
+    await holder.acquire(new AbortController().signal);
+    await lease(svc).requestHandover();
+    svc.state.breaking = false;
+    svc.state.broken = true;
+    expect(await holder.renew()).toBe("lost");
   });
 
   it("break on a free blob is fine (nobody to ask)", async () => {

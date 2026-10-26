@@ -1,6 +1,6 @@
 // WRITER_LEASE selects the provider (default: file next to the database). Invalid settings abort the start.
 import { describe, expect, it } from "vitest";
-import { loadWriterLease } from "../src/lease/config.ts";
+import { loadHandoverMode, loadWriterLease } from "../src/lease/config.ts";
 
 const azure = {
   WRITER_LEASE: "azure-blob",
@@ -43,5 +43,21 @@ describe("loadWriterLease", () => {
     expect(() =>
       loadWriterLease({ WRITER_LEASE: "none", NODE_ENV: "production" }, "/data"),
     ).toThrow(/production/);
+  });
+});
+
+describe("loadHandoverMode (WRITER_LEASE_HANDOVER, DESIGN #91)", () => {
+  it("defaults to immediate (local, LAN, compose)", () => {
+    expect(loadHandoverMode({})).toBe("immediate");
+    expect(loadHandoverMode({ WRITER_LEASE_HANDOVER: "" })).toBe("immediate");
+    expect(loadHandoverMode({ WRITER_LEASE_HANDOVER: "immediate" })).toBe("immediate");
+  });
+  it("accepts on-traffic (Azure: the deploy script shifts the traffic first)", () => {
+    expect(loadHandoverMode({ WRITER_LEASE_HANDOVER: "on-traffic" })).toBe("on-traffic");
+  });
+  it("refuses anything else", () => {
+    expect(() => loadHandoverMode({ WRITER_LEASE_HANDOVER: "later" })).toThrow(
+      /WRITER_LEASE_HANDOVER/,
+    );
   });
 });

@@ -1,1 +1,235 @@
-{"id":"fxearly0","version":16,"status":"running","settings":{"themeId":"ch","startingCash":2000,"goSalary":200,"doubleOnGoLanding":false,"turnTimeoutSec":0,"awayAfterMissedTurns":2,"auctions":true,"freeParkingJackpot":false,"evenBuild":true,"buildingLimits":{"houses":48,"hotels":16,"skyscrapers":8},"maxRounds":0},"players":[{"id":"p1","name":"Anna","color":"#e74c3c","tokenId":"cow","controller":"human","botLevel":"normal","cash":1900,"position":13,"inJail":true,"jailTurns":0,"jailCards":[],"bankrupt":false,"missedTurns":0},{"id":"p2","name":"Ben","color":"#3498db","tokenId":"swiss-knife","controller":"bot","botLevel":"easy","cash":1820,"position":21,"inJail":false,"jailTurns":0,"jailCards":["cc-jail-card"],"bankrupt":false,"missedTurns":0}],"current":0,"round":3,"phase":{"type":"await-roll"},"properties":{"1":{"owner":null,"level":0,"mortgaged":false},"3":{"owner":null,"level":0,"mortgaged":false},"5":{"owner":null,"level":0,"mortgaged":false},"6":{"owner":"p1","level":0,"mortgaged":false},"8":{"owner":null,"level":0,"mortgaged":false},"9":{"owner":"p2","level":0,"mortgaged":false},"10":{"owner":null,"level":0,"mortgaged":false},"11":{"owner":"p2","level":0,"mortgaged":false},"12":{"owner":null,"level":0,"mortgaged":false},"14":{"owner":null,"level":0,"mortgaged":false},"15":{"owner":null,"level":0,"mortgaged":false},"16":{"owner":null,"level":0,"mortgaged":false},"17":{"owner":null,"level":0,"mortgaged":false},"18":{"owner":null,"level":0,"mortgaged":false},"19":{"owner":null,"level":0,"mortgaged":false},"20":{"owner":null,"level":0,"mortgaged":false},"22":{"owner":null,"level":0,"mortgaged":false},"23":{"owner":null,"level":0,"mortgaged":false},"25":{"owner":null,"level":0,"mortgaged":false},"27":{"owner":null,"level":0,"mortgaged":false},"29":{"owner":null,"level":0,"mortgaged":false},"30":{"owner":null,"level":0,"mortgaged":false},"31":{"owner":null,"level":0,"mortgaged":false},"32":{"owner":null,"level":0,"mortgaged":false},"33":{"owner":null,"level":0,"mortgaged":false},"34":{"owner":null,"level":0,"mortgaged":false},"35":{"owner":null,"level":0,"mortgaged":false},"36":{"owner":null,"level":0,"mortgaged":false},"38":{"owner":null,"level":0,"mortgaged":false},"40":{"owner":null,"level":0,"mortgaged":false},"41":{"owner":null,"level":0,"mortgaged":false},"42":{"owner":null,"level":0,"mortgaged":false},"43":{"owner":null,"level":0,"mortgaged":false},"44":{"owner":null,"level":0,"mortgaged":false},"46":{"owner":null,"level":0,"mortgaged":false},"47":{"owner":null,"level":0,"mortgaged":false},"48":{"owner":null,"level":0,"mortgaged":false},"50":{"owner":null,"level":0,"mortgaged":false},"51":{"owner":null,"level":0,"mortgaged":false}},"dice":null,"doublesCount":0,"decks":{"chance":["ch-jail","ch-station-1","ch-jail-card","ch-back-3","ch-repairs","ch-g9-last","ch-dividend","ch-g6-first","ch-speeding","ch-nearest-station-2","ch-go","ch-loan","ch-g3-first","ch-nearest-station","ch-chairman","ch-nearest-utility"],"community":["cc-go","cc-hospital","cc-birthday","cc-consultancy","cc-inherit","cc-holiday","cc-insurance","cc-doctor","cc-tax-refund","cc-street-repairs","cc-stock","cc-school","cc-bank-error","cc-beauty","cc-jail"]},"bank":{"houses":48,"hotels":16,"skyscrapers":8},"freeParkingPot":0,"trades":[],"deadline":null,"rng":-227764943,"log":[{"at":1792855816855,"text":"Spiel gestartet. Anna beginnt.","msg":{"key":"log.gameStarted","params":{"player":"p1"}}},{"at":1792855823537,"text":"Anna würfelt 3+3 (Pasch).","msg":{"key":"log.rolledDoubles","params":{"player":"p1","a":3,"b":3}}},{"at":1792855828120,"text":"Anna kauft Feld 6 für 100.","msg":{"key":"log.bought","params":{"player":"p1","tile":6,"amount":100}}},{"at":1792855833184,"text":"Anna würfelt 1+6.","msg":{"key":"log.rolled","params":{"player":"p1","a":1,"b":6}}},{"at":1792855838610,"text":"Ben würfelt 6+3.","msg":{"key":"log.rolled","params":{"player":"p2","a":6,"b":3}}},{"at":1792855839314,"text":"Versteigerung von Feld 9.","msg":{"key":"log.auctionStart","params":{"tile":9}}},{"at":1792855850594,"text":"Anna bietet automatisch 10.","msg":{"key":"log.autoBid","params":{"player":"p1","amount":10}}},{"at":1792855851298,"text":"Ben bietet 20.","msg":{"key":"log.bid","params":{"player":"p2","amount":20}}},{"at":1792855851298,"text":"Anna bietet automatisch 30.","msg":{"key":"log.autoBid","params":{"player":"p1","amount":30}}},{"at":1792855852001,"text":"Ben bietet 40.","msg":{"key":"log.bid","params":{"player":"p2","amount":40}}},{"at":1792855852001,"text":"Anna passt automatisch (Höchstbetrag überboten).","msg":{"key":"log.autoBidExhausted","params":{"player":"p1"}}},{"at":1792855852001,"text":"Ben gewinnt Feld 9 für 40.","msg":{"key":"log.auctionWon","params":{"player":"p2","tile":9,"amount":40}}},{"at":1792855857816,"text":"Anna würfelt 5+3.","msg":{"key":"log.rolled","params":{"player":"p1","a":5,"b":3}}},{"at":1792855857816,"text":"Anna zieht eine Karte (cc-jail).","msg":{"key":"log.cardDrawn","params":{"player":"p1","card":"cc-jail"}}},{"at":1792855857816,"text":"Anna fliegt auf und landet in der U-Haft.","msg":{"key":"log.goToJail","params":{"player":"p1"}}},{"at":1792855876969,"text":"Ben würfelt 1+1 (Pasch).","msg":{"key":"log.rolledDoubles","params":{"player":"p2","a":1,"b":1}}},{"at":1792855877671,"text":"Ben kauft Feld 11 für 140.","msg":{"key":"log.bought","params":{"player":"p2","tile":11,"amount":140}}},{"at":1792855878375,"text":"Ben würfelt 4+6.","msg":{"key":"log.rolled","params":{"player":"p2","a":4,"b":6}}},{"at":1792855878375,"text":"Ben zieht eine Karte (cc-jail-card).","msg":{"key":"log.cardDrawn","params":{"player":"p2","card":"cc-jail-card"}}}]}
+{
+  "id": "fxearly0",
+  "version": 16,
+  "status": "running",
+  "settings": {
+    "themeId": "ch",
+    "startingCash": 2000,
+    "goSalary": 200,
+    "doubleOnGoLanding": false,
+    "turnTimeoutSec": 0,
+    "awayAfterMissedTurns": 2,
+    "auctions": true,
+    "freeParkingJackpot": false,
+    "evenBuild": true,
+    "buildingLimits": { "houses": 48, "hotels": 16, "skyscrapers": 8 },
+    "maxRounds": 0
+  },
+  "players": [
+    {
+      "id": "p1",
+      "name": "Anna",
+      "color": "#e74c3c",
+      "tokenId": "cow",
+      "controller": "human",
+      "botLevel": "normal",
+      "cash": 1900,
+      "position": 13,
+      "inJail": true,
+      "jailTurns": 0,
+      "jailCards": [],
+      "bankrupt": false,
+      "missedTurns": 0
+    },
+    {
+      "id": "p2",
+      "name": "Ben",
+      "color": "#3498db",
+      "tokenId": "swiss-knife",
+      "controller": "bot",
+      "botLevel": "easy",
+      "cash": 1820,
+      "position": 21,
+      "inJail": false,
+      "jailTurns": 0,
+      "jailCards": ["cc-jail-card"],
+      "bankrupt": false,
+      "missedTurns": 0
+    }
+  ],
+  "current": 0,
+  "round": 3,
+  "phase": { "type": "await-roll" },
+  "properties": {
+    "1": { "owner": null, "level": 0, "mortgaged": false },
+    "3": { "owner": null, "level": 0, "mortgaged": false },
+    "5": { "owner": null, "level": 0, "mortgaged": false },
+    "6": { "owner": "p1", "level": 0, "mortgaged": false },
+    "8": { "owner": null, "level": 0, "mortgaged": false },
+    "9": { "owner": "p2", "level": 0, "mortgaged": false },
+    "10": { "owner": null, "level": 0, "mortgaged": false },
+    "11": { "owner": "p2", "level": 0, "mortgaged": false },
+    "12": { "owner": null, "level": 0, "mortgaged": false },
+    "14": { "owner": null, "level": 0, "mortgaged": false },
+    "15": { "owner": null, "level": 0, "mortgaged": false },
+    "16": { "owner": null, "level": 0, "mortgaged": false },
+    "17": { "owner": null, "level": 0, "mortgaged": false },
+    "18": { "owner": null, "level": 0, "mortgaged": false },
+    "19": { "owner": null, "level": 0, "mortgaged": false },
+    "20": { "owner": null, "level": 0, "mortgaged": false },
+    "22": { "owner": null, "level": 0, "mortgaged": false },
+    "23": { "owner": null, "level": 0, "mortgaged": false },
+    "25": { "owner": null, "level": 0, "mortgaged": false },
+    "27": { "owner": null, "level": 0, "mortgaged": false },
+    "29": { "owner": null, "level": 0, "mortgaged": false },
+    "30": { "owner": null, "level": 0, "mortgaged": false },
+    "31": { "owner": null, "level": 0, "mortgaged": false },
+    "32": { "owner": null, "level": 0, "mortgaged": false },
+    "33": { "owner": null, "level": 0, "mortgaged": false },
+    "34": { "owner": null, "level": 0, "mortgaged": false },
+    "35": { "owner": null, "level": 0, "mortgaged": false },
+    "36": { "owner": null, "level": 0, "mortgaged": false },
+    "38": { "owner": null, "level": 0, "mortgaged": false },
+    "40": { "owner": null, "level": 0, "mortgaged": false },
+    "41": { "owner": null, "level": 0, "mortgaged": false },
+    "42": { "owner": null, "level": 0, "mortgaged": false },
+    "43": { "owner": null, "level": 0, "mortgaged": false },
+    "44": { "owner": null, "level": 0, "mortgaged": false },
+    "46": { "owner": null, "level": 0, "mortgaged": false },
+    "47": { "owner": null, "level": 0, "mortgaged": false },
+    "48": { "owner": null, "level": 0, "mortgaged": false },
+    "50": { "owner": null, "level": 0, "mortgaged": false },
+    "51": { "owner": null, "level": 0, "mortgaged": false }
+  },
+  "dice": null,
+  "doublesCount": 0,
+  "decks": {
+    "chance": [
+      "ch-jail",
+      "ch-station-1",
+      "ch-jail-card",
+      "ch-back-3",
+      "ch-repairs",
+      "ch-g9-last",
+      "ch-dividend",
+      "ch-g6-first",
+      "ch-speeding",
+      "ch-nearest-station-2",
+      "ch-go",
+      "ch-loan",
+      "ch-g3-first",
+      "ch-nearest-station",
+      "ch-chairman",
+      "ch-nearest-utility"
+    ],
+    "community": [
+      "cc-go",
+      "cc-hospital",
+      "cc-birthday",
+      "cc-consultancy",
+      "cc-inherit",
+      "cc-holiday",
+      "cc-insurance",
+      "cc-doctor",
+      "cc-tax-refund",
+      "cc-street-repairs",
+      "cc-stock",
+      "cc-school",
+      "cc-bank-error",
+      "cc-beauty",
+      "cc-jail"
+    ]
+  },
+  "bank": { "houses": 48, "hotels": 16, "skyscrapers": 8 },
+  "freeParkingPot": 0,
+  "trades": [],
+  "deadline": null,
+  "rng": -227764943,
+  "log": [
+    {
+      "at": 1792855816855,
+      "text": "Spiel gestartet. Anna beginnt.",
+      "msg": { "key": "log.gameStarted", "params": { "player": "p1" } }
+    },
+    {
+      "at": 1792855823537,
+      "text": "Anna würfelt 3+3 (Pasch).",
+      "msg": { "key": "log.rolledDoubles", "params": { "player": "p1", "a": 3, "b": 3 } }
+    },
+    {
+      "at": 1792855828120,
+      "text": "Anna kauft Feld 6 für 100.",
+      "msg": { "key": "log.bought", "params": { "player": "p1", "tile": 6, "amount": 100 } }
+    },
+    {
+      "at": 1792855833184,
+      "text": "Anna würfelt 1+6.",
+      "msg": { "key": "log.rolled", "params": { "player": "p1", "a": 1, "b": 6 } }
+    },
+    {
+      "at": 1792855838610,
+      "text": "Ben würfelt 6+3.",
+      "msg": { "key": "log.rolled", "params": { "player": "p2", "a": 6, "b": 3 } }
+    },
+    {
+      "at": 1792855839314,
+      "text": "Versteigerung von Feld 9.",
+      "msg": { "key": "log.auctionStart", "params": { "tile": 9 } }
+    },
+    {
+      "at": 1792855850594,
+      "text": "Anna bietet automatisch 10.",
+      "msg": { "key": "log.autoBid", "params": { "player": "p1", "amount": 10 } }
+    },
+    {
+      "at": 1792855851298,
+      "text": "Ben bietet 20.",
+      "msg": { "key": "log.bid", "params": { "player": "p2", "amount": 20 } }
+    },
+    {
+      "at": 1792855851298,
+      "text": "Anna bietet automatisch 30.",
+      "msg": { "key": "log.autoBid", "params": { "player": "p1", "amount": 30 } }
+    },
+    {
+      "at": 1792855852001,
+      "text": "Ben bietet 40.",
+      "msg": { "key": "log.bid", "params": { "player": "p2", "amount": 40 } }
+    },
+    {
+      "at": 1792855852001,
+      "text": "Anna passt automatisch (Höchstbetrag überboten).",
+      "msg": { "key": "log.autoBidExhausted", "params": { "player": "p1" } }
+    },
+    {
+      "at": 1792855852001,
+      "text": "Ben gewinnt Feld 9 für 40.",
+      "msg": { "key": "log.auctionWon", "params": { "player": "p2", "tile": 9, "amount": 40 } }
+    },
+    {
+      "at": 1792855857816,
+      "text": "Anna würfelt 5+3.",
+      "msg": { "key": "log.rolled", "params": { "player": "p1", "a": 5, "b": 3 } }
+    },
+    {
+      "at": 1792855857816,
+      "text": "Anna zieht eine Karte (cc-jail).",
+      "msg": { "key": "log.cardDrawn", "params": { "player": "p1", "card": "cc-jail" } }
+    },
+    {
+      "at": 1792855857816,
+      "text": "Anna fliegt auf und landet in der U-Haft.",
+      "msg": { "key": "log.goToJail", "params": { "player": "p1" } }
+    },
+    {
+      "at": 1792855876969,
+      "text": "Ben würfelt 1+1 (Pasch).",
+      "msg": { "key": "log.rolledDoubles", "params": { "player": "p2", "a": 1, "b": 1 } }
+    },
+    {
+      "at": 1792855877671,
+      "text": "Ben kauft Feld 11 für 140.",
+      "msg": { "key": "log.bought", "params": { "player": "p2", "tile": 11, "amount": 140 } }
+    },
+    {
+      "at": 1792855878375,
+      "text": "Ben würfelt 4+6.",
+      "msg": { "key": "log.rolled", "params": { "player": "p2", "a": 4, "b": 6 } }
+    },
+    {
+      "at": 1792855878375,
+      "text": "Ben zieht eine Karte (cc-jail-card).",
+      "msg": { "key": "log.cardDrawn", "params": { "player": "p2", "card": "cc-jail-card" } }
+    }
+  ]
+}

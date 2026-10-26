@@ -56,7 +56,7 @@ param customDomain string = ''
 @description('Custom domain stage (chicken-and-egg: the managed certificate can only be issued for a hostname that is already on the app, and the binding needs the certificate). hostname = hostname on the app without TLS binding; certificate = like hostname plus the managed certificate; bind = hostname bound with SniEnabled and the existing certificate. scripts/azure-deploy.sh drives the stages; an unchanged stage is a no-op (no new revision, no new certificate).')
 param customDomainStage string = 'hostname'
 
-@description('Blue/green rollout (DESIGN #89): name of the running revision that keeps 100 % of the traffic while a new revision starts with 0 % and takes the writer lease over; scripts/azure-deploy.sh shifts the traffic afterwards. Empty = the latest revision gets all traffic.')
+@description('Blue/green rollout (DESIGN #89): name of the running revision that keeps 100 % of the traffic while a new revision starts with 0 % in standby; scripts/azure-deploy.sh then shifts the traffic, and the first request makes the new revision take the writer lease over (DESIGN #91). Empty = the latest revision gets all traffic.')
 param trafficRevision string = ''
 
 var suffix = uniqueString(resourceGroup().id)
@@ -239,6 +239,9 @@ var appEnv = concat(
     { name: 'WRITER_LEASE_ACCOUNT_URL', value: storage.properties.primaryEndpoints.blob }
     { name: 'WRITER_LEASE_CONTAINER', value: leaseContainerName }
     { name: 'AZURE_CLIENT_ID', value: pullIdentity.properties.clientId }
+    // a new revision asks the running one to hand over only on its first real request (DESIGN #91): the deploy script
+    // shifts the traffic to it first, so the players' gap is the handover itself
+    { name: 'WRITER_LEASE_HANDOVER', value: 'on-traffic' }
   ],
   empty(allowedOrigins) ? [] : [{ name: 'ALLOWED_ORIGINS', value: allowedOrigins }],
   // OTEL_EXPORTER_OTLP_ENDPOINT / _PROTOCOL (grpc) / OTEL_RESOURCE_ATTRIBUTES are injected by the managed agent. The rest
@@ -265,7 +268,9 @@ var customDomains = !hasDomain ? null : [
 ]
 
 var probePath = '/api/themes' // liveness/startup: same endpoint as the Dockerfile HEALTHCHECK, answers in standby too
-var readyPath = '/api/ready' // readiness: 200 only while this replica holds the writer lease and serves (DESIGN #89)
+// readiness: up and answering, in standby too (DESIGN #91): the traffic must reach a new revision before it holds the lease
+// (its first real request starts the handover). /api/ready (= holds the lease) is for the deploy script, not the platform.
+var readyPath = '/api/live'
 
 resource app 'Microsoft.App/containerApps@2025-01-01' = if (deployApp) {
   name: baseName
@@ -282,8 +287,9 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = if (deployApp) {
     configuration: {
       // Multiple (not Single!): in Single mode the platform starts and stops revisions on its own (#52). Two revisions may
       // run at the same time now, but only the holder of the writer lease opens the SQLite file (#89): the new revision
-      // starts with 0 % traffic (trafficRevision), takes the lease over, then scripts/azure-deploy.sh shifts the traffic
-      // and deactivates the old one. Never deploy this template without that script.
+      // starts with 0 % traffic (trafficRevision) in standby, scripts/azure-deploy.sh shifts the traffic to it, its first
+      // request takes the lease over (#91), then the script deactivates the old one. Never deploy this template without
+      // that script.
       activeRevisionsMode: 'Multiple'
       maxInactiveRevisions: 3
       ingress: {

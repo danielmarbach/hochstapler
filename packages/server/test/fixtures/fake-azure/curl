@@ -1,18 +1,34 @@
 #!/usr/bin/env bash
-# Fake curl for deploy-script tests: prints the HTTP status the script asks for (-w '%{http_code}').
-# A revision is ready (/api/ready 200) unless FAKE_READY=alone, where it is ready only once no other revision is active
-# (the old one never handed over: the fallback path).
+# Fake curl for deploy-script tests: prints the HTTP status the script asks for (-w '%{http_code}') and models the writer
+# lease (DESIGN #89, #91). The holder is the revision in $S/holder while it is active, else the first active revision.
+#   /api/live   200 for an active revision (FAKE_LIVE=never: the new revision never comes up in standby)
+#   /           a real request: the revision takes the lease over (FAKE_HANDOVER=stuck: it never does)
+#   /api/ready  200 only for the holder (FAKE_OLD_READY=never: app--r1 never answers 200, so no rollback is possible)
 set -euo pipefail
 S="$FAKE_AZ_STATE"
 url="${*: -1}"
 echo "curl $url" >> "$S/calls.log"
 host="${url#https://}"
+path="/${host#*/}"
+[ "$path" = "/$host" ] && path="/"
 host="${host%%/*}"
+active() { awk -v r="$1" '$1 == r && $2 == "true"' "$S/revisions" | grep -q .; }
+holder() {
+  if [ -s "$S/holder" ] && active "$(cat "$S/holder")"; then cat "$S/holder"; else awk '$2 == "true" { print $1; exit }' "$S/revisions"; fi
+}
 case "$host" in
   app.fake.test) printf 200 ;;
   *.fake.test)
     rev="${host%.fake.test}"
-    others="$(awk -v r="$rev" '$2 == "true" && $1 != r' "$S/revisions" | wc -l | tr -d ' ')"
-    if [ "${FAKE_READY:-always}" = "alone" ] && [ "$others" != "0" ]; then printf 503; else printf 200; fi ;;
+    case "$path" in
+      /api/live)
+        if active "$rev" && { [ "${FAKE_LIVE:-always}" != "never" ] || [ "$rev" = "app--r1" ]; }; then printf 200; else printf 503; fi ;;
+      /)
+        [ "${FAKE_HANDOVER:-ok}" = "stuck" ] || echo "$rev" > "$S/holder"
+        printf 200 ;;
+      /api/ready)
+        if [ "$(holder)" = "$rev" ] && ! { [ "${FAKE_OLD_READY:-}" = "never" ] && [ "$rev" = "app--r1" ]; }; then printf 200; else printf 503; fi ;;
+      *) printf 200 ;;
+    esac ;;
   *) printf 000 ;;
 esac

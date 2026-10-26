@@ -230,8 +230,12 @@ describe("writer lease on Azure (DESIGN #89)", () => {
     expect(bicep).toContain("{ name: 'WRITER_LEASE_CONTAINER', value: leaseContainerName }");
     expect(bicep).toContain("{ name: 'AZURE_CLIENT_ID', value: pullIdentity.properties.clientId }");
   });
-  it("readiness means 'holds the lease'; liveness and startup work in standby", () => {
-    expect(bicep).toContain("var readyPath = '/api/ready'");
+  it("hands over on traffic: the deploy script shifts the traffic first (DESIGN #91)", () => {
+    expect(bicep).toContain("{ name: 'WRITER_LEASE_HANDOVER', value: 'on-traffic' }");
+  });
+  it("readiness, liveness and startup all work in standby (traffic reaches a new revision before it holds the lease)", () => {
+    expect(bicep).toContain("var readyPath = '/api/live'");
+    expect(bicep).toContain("var probePath = '/api/themes'");
     expect(bicep).toMatch(/type: 'Readiness'\s*httpGet: \{ path: readyPath, port: port \}/);
     expect(bicep).toMatch(/type: 'Liveness'\s*httpGet: \{ path: probePath, port: port \}/);
     expect(bicep).toMatch(/type: 'Startup'\s*httpGet: \{ path: probePath, port: port \}/);

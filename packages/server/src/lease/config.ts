@@ -40,6 +40,21 @@ const AzureSchema = z.object({
   AZURE_CLIENT_ID: z.string().min(1).optional(),
 });
 
+/**
+ * WRITER_LEASE_HANDOVER (DESIGN #91): when a fresh process asks the running holder to hand over.
+ *   immediate  (default) at once on start: local, LAN, compose (no traffic switch in front of the instances)
+ *   on-traffic on its first real request: Azure, where the deploy script shifts the traffic to the new revision first
+ */
+export type HandoverMode = "immediate" | "on-traffic";
+const HandoverSchema = z.enum(["immediate", "on-traffic"]).default("immediate");
+
+export function loadHandoverMode(env: NodeJS.ProcessEnv): HandoverMode {
+  const parsed = HandoverSchema.safeParse(env["WRITER_LEASE_HANDOVER"] || undefined);
+  if (!parsed.success)
+    throw new Error("WRITER_LEASE_HANDOVER must be one of: immediate, on-traffic");
+  return parsed.data;
+}
+
 export interface LeaseConfigOptions {
   onIssue?: (op: LeaseOp, issue: LeaseIssue) => void;
 }

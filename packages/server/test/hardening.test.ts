@@ -74,6 +74,10 @@ describe("pure helpers", () => {
     expect(rej("GET", "/api/ready")).toBeUndefined();
     expect(rej("HEAD", "/api/ready")).toBeUndefined();
     expect(rej("POST", "/api/ready")).toBe(405);
+    expect(rej("GET", "/api/live")).toBeUndefined();
+    expect(rej("HEAD", "/api/live")).toBeUndefined();
+    expect(rej("POST", "/api/live")).toBe(405);
+    expect(rej("GET", "/api/live/x")).toBe(404);
     expect(rej("POST", "/api/games")).toBeUndefined();
     expect(rej("GET", "/api/games")).toBe(405);
     expect(rej("GET", "/api/games/abc")).toBeUndefined();

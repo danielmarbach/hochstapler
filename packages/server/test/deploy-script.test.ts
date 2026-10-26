@@ -1,5 +1,6 @@
-// scripts/azure-deploy.sh against a fake Azure CLI (test/fixtures/fake-azure): the blue/green order of the writer-lease
-// rollout (DESIGN #89), the one-time stop-first migration, the fallback and the single-revision guarantee at the end.
+// scripts/azure-deploy.sh against a fake Azure CLI and curl (test/fixtures/fake-azure): the traffic-first blue/green order
+// of the writer-lease rollout (DESIGN #89, #91), the one-time stop-first migration, the rollback, the hard fallback and the
+// single-revision guarantee at the end.
 // Nothing here talks to Azure.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
@@ -57,6 +58,8 @@ describe("scripts/azure-deploy.sh (fake az)", () => {
         DEPLOY_TAG: "new",
         FAKE_AZ_STATE: join(dir, "state"),
         HANDOVER_TIMEOUT_SEC: "3",
+        STANDBY_TIMEOUT_SEC: "3",
+        ROLLBACK_WAIT_SEC: "3",
         ...env,
       },
     });
@@ -75,25 +78,53 @@ describe("scripts/azure-deploy.sh (fake az)", () => {
   const index = (calls: string[], pattern: RegExp): number =>
     calls.findIndex((c) => pattern.test(c));
 
-  it("blue/green: new revision with 0 % traffic, ready = holds the lease, traffic shift, then the old one stops", () => {
+  it("blue/green, traffic first (DESIGN #91): standby check, traffic shift, explicit trigger, ready, then the old one stops", () => {
     const r = run([`app--r1 true ${OLD_IMAGE} azure-blob`], ["--skip-build"]);
     expect(r.err).not.toMatch(/ERROR/);
     expect(r.status).toBe(0);
     const rollout = index(r.calls, /deployApp=true .*trafficRevision=app--r1/);
-    const ready = index(r.calls, /curl https:\/\/app--r2\.fake\.test\/api\/ready/);
+    const running = index(r.calls, /revision show .*--revision app--r2 .*runningState/);
+    const replica = index(r.calls, /replica list .*--revision app--r2 .*ready/);
+    const live = index(r.calls, /curl https:\/\/app--r2\.fake\.test\/api\/live$/);
     const shift = index(r.calls, /ingress traffic set .*--revision-weight app--r2=100/);
+    const trigger = index(r.calls, /curl https:\/\/app--r2\.fake\.test\/$/);
+    const ready = index(r.calls, /curl https:\/\/app--r2\.fake\.test\/api\/ready$/);
     const stop = index(r.calls, /revision deactivate .*--revision app--r1/);
     expect(rollout).toBeGreaterThan(-1);
-    expect(ready).toBeGreaterThan(rollout);
-    expect(shift).toBeGreaterThan(ready);
-    expect(stop).toBeGreaterThan(shift);
-    // nothing was stopped before the new revision existed
+    expect(running).toBeGreaterThan(rollout);
+    expect(replica).toBeGreaterThan(rollout);
+    expect(live).toBeGreaterThan(Math.max(running, replica));
+    expect(shift).toBeGreaterThan(live);
+    expect(trigger).toBeGreaterThan(shift);
+    expect(ready).toBeGreaterThan(trigger);
+    expect(stop).toBeGreaterThan(ready);
+    // the standby check must not be a request that starts the handover before the traffic is there
+    expect(index(r.calls, /curl https:\/\/app--r2\.fake\.test\/api\/themes/)).toBe(-1);
+    expect(
+      r.calls.slice(0, shift).filter((c) => /curl https:\/\/app--r2\.fake\.test\/$/.test(c)),
+    ).toEqual([]);
+    // nothing was stopped before the new revision held the lease, and the old one is stopped last
     expect(index(r.calls, /revision deactivate/)).toBe(stop);
     expect(r.revisions.filter((l) => l.includes(" true "))).toEqual([
       expect.stringMatching(/^app--r2 true/),
     ]);
+    expect(r.out).toMatch(/handover took \d+ s/);
     expect(r.out).toContain("handover: blue-green");
     expect(r.out).toMatch(/Active revisions: app--r2 \/ total replicas: 1/);
+  });
+
+  it("a new revision that never comes up in standby is removed again; the traffic never moved", () => {
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob`], ["--skip-build"], {
+      FAKE_LIVE: "never",
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.err).toContain("rollout failed, previous revision kept");
+    expect(index(r.calls, /ingress traffic set/)).toBe(-1);
+    expect(index(r.calls, /revision deactivate .*--revision app--r1/)).toBe(-1);
+    expect(index(r.calls, /revision deactivate .*--revision app--r2/)).toBeGreaterThan(-1);
+    expect(r.revisions.filter((l) => l.includes(" true "))).toEqual([
+      expect.stringMatching(/^app--r1 true/),
+    ]);
   });
 
   it("a running revision without the writer lease is stopped first (one-time migration)", () => {
@@ -107,17 +138,41 @@ describe("scripts/azure-deploy.sh (fake az)", () => {
     expect(r.out).toContain("one-time migration");
   });
 
-  it("falls back to stopping the old revision when the new one does not become ready, and says so", () => {
+  it("rolls back when the new revision does not take over but the old one is ready: traffic back, new one off, exit non-zero", () => {
     const r = run([`app--r1 true ${OLD_IMAGE} azure-blob`], ["--skip-build"], {
-      FAKE_READY: "alone",
+      FAKE_HANDOVER: "stuck",
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.err).toContain("rollout failed, previous revision kept");
+    const forward = index(r.calls, /ingress traffic set .*app--r2=100/);
+    const back = index(r.calls, /ingress traffic set .*app--r1=100/);
+    const stopNew = index(r.calls, /revision deactivate .*--revision app--r2/);
+    expect(forward).toBeGreaterThan(-1);
+    expect(back).toBeGreaterThan(forward);
+    expect(stopNew).toBeGreaterThan(back);
+    expect(index(r.calls, /revision deactivate .*--revision app--r1/)).toBe(-1);
+    expect(r.revisions.filter((l) => l.includes(" true "))).toEqual([
+      expect.stringMatching(/^app--r1 true/),
+    ]);
+    expect(r.out).not.toContain("handover: fallback");
+  });
+
+  it("falls back to stopping the old revision when neither the new nor the old one is ready, and says so", () => {
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob`], ["--skip-build"], {
+      FAKE_HANDOVER: "stuck",
+      FAKE_OLD_READY: "never",
     });
     expect(r.status).toBe(0);
     expect(r.err).toContain("falling back");
-    const stop = index(r.calls, /revision deactivate .*--revision app--r1/);
     const shift = index(r.calls, /ingress traffic set .*app--r2=100/);
-    expect(stop).toBeLessThan(shift);
+    const stop = index(r.calls, /revision deactivate .*--revision app--r1/);
+    expect(shift).toBeGreaterThan(-1);
+    expect(stop).toBeGreaterThan(shift);
+    expect(index(r.calls, /ingress traffic set .*app--r1=100/)).toBe(-1);
     expect(r.out).toContain("handover: fallback");
-    expect(r.revisions.filter((l) => l.includes(" true "))).toHaveLength(1);
+    expect(r.revisions.filter((l) => l.includes(" true "))).toEqual([
+      expect.stringMatching(/^app--r2 true/),
+    ]);
   });
 
   it("--infra-only with an unchanged template keeps the running revision and stops nothing", () => {

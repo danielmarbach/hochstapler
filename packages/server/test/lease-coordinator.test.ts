@@ -233,6 +233,136 @@ describe("WriterCoordinator", () => {
   });
 });
 
+describe("WriterCoordinator, handover on traffic (DESIGN #91)", () => {
+  let store: MemoryLeaseStore;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    Probe.open = 0;
+    Probe.maxOpen = 0;
+    store = new MemoryLeaseStore();
+  });
+  afterEach(() => vi.useRealTimers());
+  const breaks = () => store.log.filter((l) => l === "break").length;
+
+  it("a fresh process takes a free lease without any traffic", async () => {
+    const a = instance(store, "a");
+    a.coordinator.start({ requestHandover: "on-traffic" });
+    await advance(10);
+    expect(a.coordinator.state).toBe("active");
+    expect(breaks()).toBe(0);
+    await a.coordinator.stop();
+  });
+
+  it("takes over from a dead holder without traffic once the lease has expired", async () => {
+    store.tryAcquire("dead-holder");
+    const b = instance(store, "b");
+    b.coordinator.start({ requestHandover: "on-traffic" });
+    await advance(14_000);
+    expect(b.coordinator.state).toBe("acquiring");
+    await advance(1200);
+    expect(b.coordinator.state).toBe("active");
+    expect(breaks()).toBe(0);
+    await b.coordinator.stop();
+  });
+
+  it("does not break a live holder before its first real request, and asks it to hand over right after", async () => {
+    const a = instance(store, "a");
+    a.coordinator.start({ requestHandover: true });
+    await advance(10);
+    const b = instance(store, "b");
+    b.coordinator.start({ requestHandover: "on-traffic" });
+    await advance(60_000);
+    expect(b.coordinator.state).toBe("acquiring");
+    expect(a.coordinator.state).toBe("active");
+    expect(breaks()).toBe(0);
+    expect(b.probe.events.map((e) => e.type)).not.toContain("handover-triggered");
+
+    b.coordinator.noteTraffic();
+    b.coordinator.noteTraffic(); // only the first one counts
+    await advance(10);
+    expect(breaks()).toBe(1);
+    expect(b.probe.events.filter((e) => e.type === "handover-triggered")).toHaveLength(1);
+    await advance(3500);
+    expect(a.coordinator.state).toBe("standby");
+    expect(b.coordinator.state).toBe("active");
+    expect(Probe.maxOpen).toBe(1);
+    expect(breaks()).toBe(1);
+    await b.coordinator.stop();
+    await a.coordinator.stop();
+  });
+
+  it("traffic that arrived before start() breaks in the first round", async () => {
+    const a = instance(store, "a");
+    a.coordinator.start({ requestHandover: true });
+    await advance(10);
+    const b = instance(store, "b");
+    b.coordinator.noteTraffic();
+    b.coordinator.start({ requestHandover: "on-traffic" });
+    await advance(3500);
+    expect(b.coordinator.state).toBe("active");
+    expect(breaks()).toBe(1);
+    await b.coordinator.stop();
+    await a.coordinator.stop();
+  });
+
+  it("a former holder in standby never breaks the lease, however much traffic it gets (no ping-pong)", async () => {
+    const a = instance(store, "a");
+    a.coordinator.start({ requestHandover: "on-traffic" });
+    await advance(10);
+    expect(a.coordinator.state).toBe("active");
+    a.coordinator.noteTraffic(); // traffic while holding: nothing to break
+    const b = instance(store, "b");
+    b.coordinator.start({ requestHandover: "on-traffic" });
+    b.coordinator.noteTraffic();
+    await advance(3500);
+    expect(b.coordinator.state).toBe("active");
+    expect(breaks()).toBe(1);
+    // A is a candidate again (after its rejoin delay) and still gets requests: it must wait, never break
+    a.coordinator.noteTraffic();
+    await advance(120_000);
+    a.coordinator.noteTraffic();
+    await advance(120_000);
+    expect(a.coordinator.state).toBe("acquiring");
+    expect(b.coordinator.state).toBe("active");
+    expect(breaks()).toBe(1);
+    expect(a.probe.events.map((e) => e.type)).not.toContain("handover-triggered");
+    await b.coordinator.stop();
+    await a.coordinator.stop();
+  });
+
+  it("a process that held the lease before its first request never breaks after losing it", async () => {
+    const a = instance(store, "a");
+    a.coordinator.start({ requestHandover: "on-traffic" });
+    await advance(10);
+    a.lease.renewBehaviour = "fail";
+    await advance(3000);
+    expect(a.probe.calls).toContain("fence");
+    store.tryAcquire("someone-else");
+    a.lease.renewBehaviour = "normal";
+    a.coordinator.noteTraffic();
+    await advance(5000);
+    expect(a.coordinator.state).toBe("acquiring");
+    expect(breaks()).toBe(0);
+    await a.coordinator.stop();
+  });
+
+  it("the immediate mode ignores traffic: it asked once at start and never again", async () => {
+    const a = instance(store, "a");
+    a.coordinator.start({ requestHandover: true });
+    await advance(10);
+    const b = instance(store, "b");
+    b.coordinator.start({ requestHandover: true });
+    await advance(3500);
+    expect(breaks()).toBe(1);
+    a.coordinator.noteTraffic();
+    await advance(120_000);
+    expect(breaks()).toBe(1);
+    expect(b.coordinator.state).toBe("active");
+    await b.coordinator.stop();
+    await a.coordinator.stop();
+  });
+});
+
 describe("WriterCoordinator.whenActive", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());

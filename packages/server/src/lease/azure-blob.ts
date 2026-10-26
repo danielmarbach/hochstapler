@@ -33,11 +33,13 @@ export interface TokenSource {
   get(): Promise<string>;
 }
 
-export type LeaseOp = "acquire" | "renew" | "release" | "break" | "create" | "token";
+export type LeaseOp = "acquire" | "renew" | "release" | "break" | "create" | "state" | "token";
 /** status and Azure error code (a closed set from the service) only: never a body, URL, token or lease id */
 export interface LeaseIssue {
   status?: number;
   code?: string;
+  /** x-ms-lease-state of a Get Blob Properties answer */
+  leaseState?: string;
   error?: Error;
 }
 
@@ -102,9 +104,15 @@ export class AzureBlobLease implements WriterLease {
   async renew(): Promise<RenewResult> {
     const r = await this.lease("renew", { "x-ms-lease-id": this.id });
     if (r.status === 200) return "held";
-    // renew on a breaking lease fails with 409 LeaseIsBreaking...: somebody asked for a handover
+    // renew on a breaking lease fails with 409: somebody asked for a handover. Azure answers
+    // "LeaseIsBrokenAndCannotBeRenewed" both while the lease is breaking and once it is broken, so that code alone
+    // cannot tell a handover from an expired break; the lease state of the blob can. Only "breaking" may drain.
     if (r.status === 409 && (r.code ?? "").startsWith("LeaseIsBreaking"))
       return "handover-requested";
+    if (r.status === 409 && r.code === "LeaseIsBrokenAndCannotBeRenewed") {
+      const state = await this.leaseState();
+      if (state === "breaking") return "handover-requested";
+    }
     this.report("renew", r);
     return "lost";
   }
@@ -138,11 +146,22 @@ export class AzureBlobLease implements WriterLease {
     if (r.status !== 201 && r.code !== "BlobAlreadyExists") this.report("create", r);
   }
 
+  /** x-ms-lease-state of the blob (Get Blob Properties); undefined without an answer */
+  private async leaseState(): Promise<string | undefined> {
+    const r = await this.request(this.blobUrl, {}, "HEAD");
+    if (r.status !== 200) this.report("state", r);
+    return r.leaseState;
+  }
+
   private lease(action: string, headers: Record<string, string>): Promise<Outcome> {
     return this.request(`${this.blobUrl}?comp=lease`, { "x-ms-lease-action": action, ...headers });
   }
 
-  private async request(url: string, headers: Record<string, string>): Promise<Outcome> {
+  private async request(
+    url: string,
+    headers: Record<string, string>,
+    method: "PUT" | "HEAD" = "PUT",
+  ): Promise<Outcome> {
     const token = await attempt("lease:token", () => this.token.get());
     if (!token.ok) {
       this.onIssue("token", { error: token.error });
@@ -152,12 +171,12 @@ export class AzureBlobLease implements WriterLease {
     const timer = setTimeout(() => timeout.abort(), this.requestTimeoutMs);
     const sent = await attempt("lease:http", () =>
       this.fetch(url, {
-        method: "PUT",
+        method,
         headers: {
           authorization: `Bearer ${token.value}`,
           "x-ms-version": API_VERSION,
           "x-ms-date": new Date().toUTCString(),
-          "content-length": "0",
+          ...(method === "PUT" ? { "content-length": "0" } : {}),
           ...headers,
         },
         signal: timeout.signal,
@@ -167,7 +186,12 @@ export class AzureBlobLease implements WriterLease {
     const res = sent.value;
     await res.body?.cancel();
     const code = res.headers.get("x-ms-error-code") ?? undefined;
-    return code === undefined ? { status: res.status } : { status: res.status, code };
+    const leaseState = res.headers.get("x-ms-lease-state") ?? undefined;
+    return {
+      status: res.status,
+      ...(code === undefined ? {} : { code }),
+      ...(leaseState === undefined ? {} : { leaseState }),
+    };
   }
 }
 
@@ -175,6 +199,8 @@ interface Outcome {
   /** 0 = no HTTP answer (network error, timeout) */
   status: number;
   code?: string;
+  /** x-ms-lease-state of a Get Blob Properties answer */
+  leaseState?: string;
   error?: Error;
 }
 

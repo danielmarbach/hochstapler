@@ -407,6 +407,9 @@ export function recordLeaseEvent(kind: string, e: LeaseEvent): void {
     case "renew-failed":
       emitLog("warn", "writer lease renewal failed", { ...base, "lease.result": e.result });
       return;
+    case "handover-triggered":
+      emitLog("info", "writer lease handover triggered", base);
+      return;
     case "handover-requested":
       emitLog("info", "writer lease handover requested", base);
       return;

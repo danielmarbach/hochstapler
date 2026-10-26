@@ -79,7 +79,10 @@ Principle: **deny by default, allow only what the game really needs.** Every loo
   renewal or past (last renewal + duration - safety margin). No Single revision mode, no second replica per revision.
 - The `file` lease is for local disks only (dev, LAN compose, e2e), never for an SMB/NFS share; `WRITER_LEASE=none` only for
   one in-process instance (tests). New lease backends implement `WriterLease` and keep provider code in their own module.
-- Readiness (`/api/ready`) = holds the lease; liveness/startup stay on `/api/themes` and must work in standby.
+- `/api/ready` = holds the lease (deploy script only). The platform probes must pass in standby: readiness on `/api/live`,
+  liveness/startup on `/api/themes` (DESIGN #91). Azure runs `WRITER_LEASE_HANDOVER=on-traffic`: the script shifts the
+  traffic to the new revision before the handover; only a process that never held the lease may break it, health
+  probes (`kube-probe/`) and `/api/ready` / `/api/live` never trigger it.
 - Exactly 1 replica (min=max=1), ingress `allowInsecure: false`, never set `POLY_TEST_MODE`, no secrets in outputs or script output,
   ACR admin user stays off (pull via managed identity).
 - Custom domain (DESIGN #53) is optional config (`AZ_CUSTOM_DOMAIN`, never in the repo); stages `hostname` -> `certificate` -> `bind` live in the

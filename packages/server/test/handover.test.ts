@@ -129,6 +129,68 @@ describe("writer lease handover between two instances (file lease)", () => {
     expect(monitor.maxOpen).toBe(1);
     expect(monitor.writes).toBeGreaterThan(20);
   }, 30_000);
+
+  it("on-traffic (DESIGN #91): the new instance waits ready-for-the-platform in standby and takes over on its first real request; the former holder never breaks", async () => {
+    // a fresh instance takes a free lease without any request
+    const a = await instance("A", { leaseHandover: "on-traffic" });
+    expect(a.srv.writerState()).toBe("active");
+    const t = await startedTable(a, { bots: ["normal"] });
+    clients.push(t.a, t.b);
+    const pa = new AutoPlayer(t.a, t.host.playerId, 1, { maxVersion: 40 });
+    const pb = new AutoPlayer(t.b, t.friend.playerId, 2, { maxVersion: 40 });
+    await t.a.untilState((s) => s.version >= 10, 10_000);
+
+    const b = await instance("B", { waitUntilActive: false, leaseHandover: "on-traffic" });
+    // platform probes and the deploy script's checks: B is up (standby), never asks A to hand over
+    const probe = { headers: { "user-agent": "kube-probe/1.31" } };
+    for (let i = 0; i < 5; i++) {
+      expect((await fetch(`${b.base}/api/themes`, probe)).status).toBe(200);
+      const live = await fetch(`${b.base}/api/live`);
+      expect(live.status).toBe(200);
+      expect(await live.json()).toEqual({ state: "acquiring" });
+      expect((await fetch(`${b.base}/api/ready`)).status).toBe(503);
+      expect((await fetch(`${b.base}/api/ready`, { method: "HEAD" })).status).toBe(503);
+      await sleep(200); // a few renewal intervals (200 ms) of A
+    }
+    expect(b.srv.writerState()).toBe("acquiring");
+    expect(a.srv.writerState()).toBe("active");
+    expect(t.a.closeCode).toBeNull();
+
+    // the first real request (the deploy script's GET / after the traffic shift) starts the handover
+    const first = await fetch(`${b.base}/`);
+    expect([200, 404]).toContain(first.status);
+    await b.srv.whenActive();
+    expect(await t.a.untilClosed(5000)).toBe(WS_CLOSE_HANDOVER);
+    pa.paused = pb.paused = true;
+    expect((await fetch(`${b.base}/api/ready`)).status).toBe(200);
+    expect((await fetch(`${a.base}/api/live`)).status).toBe(200); // the former holder: up, in standby
+
+    // A keeps getting requests (stale clients) long past its rejoin delay (1.5 s): it must never take the lease back
+    for (let i = 0; i < 10; i++) {
+      expect((await fetch(`${a.base}/api/games/${t.host.gameId}`)).status).toBe(503);
+      const late = await TestClient.open(a.wsUrl);
+      expect(await late.untilClosed(3000)).toBe(WS_CLOSE_HANDOVER);
+      await sleep(250);
+    }
+    expect(b.srv.writerState()).toBe("active");
+    expect(a.srv.writerState()).toBe("acquiring");
+    const again = await TestClient.join(b, t.host);
+    clients.push(again);
+    expect(monitor.violations).toEqual([]);
+    expect(monitor.maxOpen).toBe(1);
+  }, 30_000);
+
+  it("on-traffic: a WebSocket upgrade is a real request, too", async () => {
+    const a = await instance("A", { leaseHandover: "on-traffic" });
+    const b = await instance("B", { waitUntilActive: false, leaseHandover: "on-traffic" });
+    await sleep(600);
+    expect(b.srv.writerState()).toBe("acquiring");
+    const ws = await TestClient.open(b.wsUrl);
+    expect(await ws.untilClosed(3000)).toBe(WS_CLOSE_HANDOVER); // standby answer, but the handover has started
+    await b.srv.whenActive();
+    expect(a.srv.writerState()).not.toBe("active");
+    expect(monitor.violations).toEqual([]);
+  }, 15_000);
 });
 
 describe("standby and a lost lease (in-memory lease)", () => {

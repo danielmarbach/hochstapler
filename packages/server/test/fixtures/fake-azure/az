@@ -50,6 +50,8 @@ case "$args" in
       *"WRITER_LEASE"*) field "$rev" 4 ;;
       *"properties.fqdn"*) echo "$rev.fake.test" ;;
       *"healthState"*) echo Healthy ;;
+      *"provisioningState"*) echo Provisioned ;;
+      *"runningState"*) [ "$(field "$rev" 2)" = "true" ] && echo Running || echo Stopped ;;
     esac ;;
   *" containerapp revision deactivate "*) set_active "$(opt --revision "$@")" false ;;
   *" containerapp revision activate "*) set_active "$(opt --revision "$@")" true ;;

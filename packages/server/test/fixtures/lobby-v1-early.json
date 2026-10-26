@@ -1,46 +1,46 @@
 {
- "gameId": "fxearly0",
- "inviteCode": "FXEARLY",
- "status": "running",
- "settings": {
-  "themeId": "ch",
-  "startingCash": 2000,
-  "goSalary": 200,
-  "doubleOnGoLanding": false,
-  "turnTimeoutSec": 0,
-  "awayAfterMissedTurns": 2,
-  "auctions": true,
-  "freeParkingJackpot": false,
-  "evenBuild": true,
-  "buildingLimits": {
-   "houses": 48,
-   "hotels": 16,
-   "skyscrapers": 8
+  "gameId": "fxearly0",
+  "inviteCode": "FXEARLY",
+  "status": "running",
+  "settings": {
+    "themeId": "ch",
+    "startingCash": 2000,
+    "goSalary": 200,
+    "doubleOnGoLanding": false,
+    "turnTimeoutSec": 0,
+    "awayAfterMissedTurns": 2,
+    "auctions": true,
+    "freeParkingJackpot": false,
+    "evenBuild": true,
+    "buildingLimits": {
+      "houses": 48,
+      "hotels": 16,
+      "skyscrapers": 8
+    },
+    "maxRounds": 0
   },
-  "maxRounds": 0
- },
- "seats": [
-  {
-   "playerId": "p1",
-   "name": "Anna",
-   "color": "#e74c3c",
-   "tokenId": "cow",
-   "kind": "human",
-   "botLevel": "normal",
-   "isHost": true,
-   "tokenHash": "92898bb2b236e28d79e66b583a93b1a62261c7014e160a12861e07b0849a2b3c"
-  },
-  {
-   "playerId": "p2",
-   "name": "Ben",
-   "color": "#3498db",
-   "tokenId": "swiss-knife",
-   "kind": "bot",
-   "botLevel": "easy",
-   "isHost": false,
-   "tokenHash": ""
-  }
- ],
- "maxPlayers": 2,
- "createdAt": 1792855810982
+  "seats": [
+    {
+      "playerId": "p1",
+      "name": "Anna",
+      "color": "#e74c3c",
+      "tokenId": "cow",
+      "kind": "human",
+      "botLevel": "normal",
+      "isHost": true,
+      "tokenHash": "92898bb2b236e28d79e66b583a93b1a62261c7014e160a12861e07b0849a2b3c"
+    },
+    {
+      "playerId": "p2",
+      "name": "Ben",
+      "color": "#3498db",
+      "tokenId": "swiss-knife",
+      "kind": "bot",
+      "botLevel": "easy",
+      "isHost": false,
+      "tokenHash": ""
+    }
+  ],
+  "maxPlayers": 2,
+  "createdAt": 1792855810982
 }

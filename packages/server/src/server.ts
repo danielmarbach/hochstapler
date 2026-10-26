@@ -51,9 +51,11 @@ import { loadRetention } from "./retention.ts";
 import type { RetentionConfig } from "./retention.ts";
 import { MigrationError } from "./migrations/schema.ts";
 import type { SchemaMigration } from "./migrations/schema.ts";
-import { loadWriterLease } from "./lease/config.ts";
+import { loadHandoverMode, loadWriterLease } from "./lease/config.ts";
+import type { HandoverMode } from "./lease/config.ts";
 import { WriterCoordinator } from "./lease/coordinator.ts";
 import type { WriterState } from "./lease/coordinator.ts";
+import { countsAsTraffic } from "./lease/traffic.ts";
 import { LeaseFencedError } from "./lease/types.ts";
 import type { WriterLease } from "./lease/types.ts";
 import type { StoredLobby, StoredSeat } from "./db.ts";
@@ -139,6 +141,8 @@ export interface ServerOptions {
   waitUntilActive?: boolean;
   /** a former holder waits this long before it competes for the lease again (default 2 x lease duration) */
   leaseRejoinDelayMs?: number;
+  /** when this fresh instance asks the holder to hand over (default: env WRITER_LEASE_HANDOVER, DESIGN #91) */
+  leaseHandover?: HandoverMode;
   /** pause after a lost lease / failed activation before the next attempt (default 1 s) */
   leaseRetryDelayMs?: number;
   /** TESTS ONLY: observe when the database is opened and closed and every write */
@@ -487,6 +491,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     loadWriterLease(process.env, dataDir, {
       onIssue: (op, issue) => recordLeaseIssue("azure-blob", op, issue),
     });
+  const handoverMode = options.leaseHandover ?? loadHandoverMode(process.env);
   const build = options.buildId ?? readBuildId(staticDir);
   const limits = loadLimits(process.env, options.limits);
   const hubOpts: RoomOptions = {
@@ -595,6 +600,8 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
       onEvent: (e) => {
         recordLeaseEvent(lease.kind, e);
         if (e.type === "state") console.warn(`[lease] ${lease.kind}: ${e.state}`);
+        if (e.type === "handover-triggered")
+          console.warn(`[lease] ${lease.kind}: first request, asking the holder to hand over`);
         if (e.type === "lost") console.error(`[lease] ${lease.kind}: lease lost, writes stopped`);
         if (e.type === "activate-failed") console.error("[lease] activation failed:", e.error);
       },
@@ -667,6 +674,11 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     if (parts[0] === "ready" && parts.length === 1 && method === "GET") {
       const state = coordinator.state;
       return sendJson(res, state === "active" && core ? 200 : 503, { state });
+    }
+    // platform readiness (DESIGN #91): the process is up and answers, in standby too, so the traffic can reach a new
+    // revision before it holds the lease (its first real request starts the handover in on-traffic mode)
+    if (parts[0] === "live" && parts.length === 1 && method === "GET") {
+      return sendJson(res, 200, { state: coordinator.state });
     }
     // everything below needs the database
     const c = activeCore();
@@ -992,6 +1004,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
   const KNOWN_METHODS = new Set(["GET", "HEAD", "POST", "PATCH", "DELETE", "PUT", "OPTIONS"]);
 
   const server = createServer((req, res) => {
+    if (countsAsTraffic(req)) coordinator.noteTraffic();
     // the platform's health probes (Container Apps sends `kube-probe/<version>`) would be most of the traced requests;
     // the user agent is only read for this decision and never recorded
     if (req.headers["user-agent"]?.startsWith("kube-probe/")) {
@@ -1068,6 +1081,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
   let accepting = true; // false once the shutdown has begun
   const rate = options.wsRate ?? DEFAULT_WS_RATE;
   server.on("upgrade", (req, socket, head) => {
+    if (countsAsTraffic(req)) coordinator.noteTraffic();
     const path = (req.url ?? "").split("?")[0];
     if (!accepting || path !== "/ws" || wss.clients.size >= WS_MAX_SOCKETS) {
       return void socket.destroy();
@@ -1194,8 +1208,9 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
   });
   const addr = server.address();
   const port = typeof addr === "object" && addr ? addr.port : 0;
-  // a fresh process asks the current holder (if any) to hand over: blue/green deploys, docs/DESIGN.md #89
-  coordinator.start({ requestHandover: true });
+  // a fresh process asks the current holder (if any) to hand over: blue/green deploys, docs/DESIGN.md #89; in
+  // on-traffic mode (Azure, #91) only once its first real request arrives, i.e. after the traffic was shifted to it
+  coordinator.start({ requestHandover: handoverMode === "on-traffic" ? "on-traffic" : true });
 
   /**
    * Graceful shutdown (docs/DESIGN.md #44): stop accepting, finish queued work and persist every room, then
