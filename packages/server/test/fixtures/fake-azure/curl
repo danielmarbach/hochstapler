@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Fake curl for deploy-script tests: prints the HTTP status the script asks for (-w '%{http_code}').
+# A revision is ready (/api/ready 200) unless FAKE_READY=alone, where it is ready only once no other revision is active
+# (the old one never handed over: the fallback path).
+set -euo pipefail
+S="$FAKE_AZ_STATE"
+url="${*: -1}"
+echo "curl $url" >> "$S/calls.log"
+host="${url#https://}"
+host="${host%%/*}"
+case "$host" in
+  app.fake.test) printf 200 ;;
+  *.fake.test)
+    rev="${host%.fake.test}"
+    others="$(awk -v r="$rev" '$2 == "true" && $1 != r' "$S/revisions" | wc -l | tr -d ' ')"
+    if [ "${FAKE_READY:-always}" = "alone" ] && [ "$others" != "0" ]; then printf 503; else printf 200; fi ;;
+  *) printf 000 ;;
+esac

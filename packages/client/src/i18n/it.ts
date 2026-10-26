@@ -44,6 +44,7 @@ export const it = {
   "net.catchingUp": "Riproduzione di {n} azioni …",
   "net.newVersion": "Nuova versione – caricamento…",
   "net.updating": "Installazione di un aggiornamento – torno subito…",
+  "net.handover": "Cambio di server – torno subito…",
   "srv.restarting": "Il server si sta aggiornando – riprova tra un attimo.",
   "srv.spectatorChat": "Gli spettatori non possono scrivere in chat.",
   "srv.spectatorPlay": "Gli spettatori non possono giocare.",
@@ -77,6 +78,7 @@ export const it = {
   "srv.invalidToken": "Chiave giocatore non valida.",
   "srv.rateLimited": "Troppe richieste. Riprova più tardi.",
   "srv.serverFull": "Il server è al completo al momento. Riprova più tardi.",
+  "srv.standby": "Il server sta passando a un'altra istanza – riprova tra un attimo.",
   "srv.settingsTooLow":
     "Il limite di tempo deve essere di almeno 30 secondi (o disattivato); assenza dopo almeno 2 turni saltati.",
 

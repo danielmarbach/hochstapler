@@ -45,6 +45,7 @@ export const de = {
   "net.catchingUp": "Spiele {n} Aktionen nach …",
   "net.newVersion": "Neue Version – wird geladen…",
   "net.updating": "Update wird eingespielt – gleich zurück…",
+  "net.handover": "Server wechselt – gleich zurück…",
   "srv.restarting": "Der Server wird gerade aktualisiert – bitte gleich nochmal.",
   // the German texts of the srv.* keys are matched verbatim against the messages the server sends
   "srv.spectatorChat": "Zuschauer können nicht chatten.",
@@ -79,6 +80,7 @@ export const de = {
   "srv.invalidToken": "Ungültiger Spielerschlüssel.",
   "srv.rateLimited": "Zu viele Anfragen. Bitte später erneut.",
   "srv.serverFull": "Der Server ist gerade voll. Bitte später erneut.",
+  "srv.standby": "Der Server wechselt gerade – bitte gleich nochmal.",
   "srv.settingsTooLow":
     "Zeitlimit mindestens 30 Sekunden (oder aus), Abwesenheit frühestens nach 2 verpassten Zügen.",
 

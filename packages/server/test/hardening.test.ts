@@ -71,6 +71,9 @@ describe("pure helpers", () => {
     const rej = (m: string, p: string) => routeRejection(m, p, false)?.status;
     expect(rej("GET", "/api/themes")).toBeUndefined();
     expect(rej("POST", "/api/themes")).toBe(405);
+    expect(rej("GET", "/api/ready")).toBeUndefined();
+    expect(rej("HEAD", "/api/ready")).toBeUndefined();
+    expect(rej("POST", "/api/ready")).toBe(405);
     expect(rej("POST", "/api/games")).toBeUndefined();
     expect(rej("GET", "/api/games")).toBe(405);
     expect(rej("GET", "/api/games/abc")).toBeUndefined();

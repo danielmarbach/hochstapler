@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Fake git for deploy-script tests: a clean tree at a fixed commit.
+case "$*" in
+  "status --porcelain") ;;
+  "rev-parse --short=8 HEAD") echo abcdef12 ;;
+  *) echo "fake git: unhandled: $*" >&2; exit 9 ;;
+esac

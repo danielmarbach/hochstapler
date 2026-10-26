@@ -1,5 +1,6 @@
 // Pure decisions for seamless version upgrades (docs/DESIGN.md #44): how to reconnect after a server
 // restart and when the page has to reload to pick up a new frontend build. No DOM, no timers owned here.
+import { WS_CLOSE_HANDOVER } from "@poly/engine";
 
 /** WebSocket close code the server sends when it shuts down for an update ("Service Restart"). */
 export const SERVICE_RESTART = 1012;
@@ -7,10 +8,15 @@ export const SERVICE_RESTART = 1012;
 /** Build id of a development server or client; it never triggers a reload. */
 export const DEV_BUILD = "dev";
 
-export type CloseKind = "restart" | "normal";
+/**
+ * restart: the server goes down for an update (1012). handover: this instance hands the database to another one
+ * (writer lease, 4503) and the next one serves within seconds. normal: anything else.
+ */
+export type CloseKind = "restart" | "handover" | "normal";
 
 export function closeKind(code: number): CloseKind {
-  return code === SERVICE_RESTART ? "restart" : "normal";
+  if (code === SERVICE_RESTART) return "restart";
+  return code === WS_CLOSE_HANDOVER ? "handover" : "normal";
 }
 
 const BASE_DELAY_MS = 500;
@@ -19,8 +25,26 @@ const NORMAL_MAX_DELAY_MS = 10_000;
 /** After a deploy the new container is back within seconds, so keep polling closely. */
 const RESTART_MAX_DELAY_MS = 2000;
 
-/** Delay before reconnect attempt number `attempt` (0 = first retry): 500 ms, 1 s, 2 s, ... up to a cap. */
-export function reconnectDelay(kind: CloseKind, attempt: number): number {
+/** A handover is over in seconds: 250 ms, 500 ms, then every second, each stretched by up to 100 % random jitter. */
+const HANDOVER_BASE_DELAY_MS = 250;
+const HANDOVER_MAX_DELAY_MS = 1000;
+
+/**
+ * Delay before reconnect attempt number `attempt` (0 = first retry): 500 ms, 1 s, 2 s, ... up to a cap. After a handover
+ * every player of every game reconnects at the same moment, so those delays carry jitter (`random` in [0, 1)).
+ */
+export function reconnectDelay(
+  kind: CloseKind,
+  attempt: number,
+  random: () => number = Math.random,
+): number {
+  if (kind === "handover") {
+    const base = Math.min(
+      HANDOVER_MAX_DELAY_MS,
+      HANDOVER_BASE_DELAY_MS * 2 ** Math.min(attempt, 16),
+    );
+    return Math.floor(base * (1 + random()));
+  }
   const cap = kind === "restart" ? RESTART_MAX_DELAY_MS : NORMAL_MAX_DELAY_MS;
   // the exponent is clamped so absurd attempt counts cannot overflow to Infinity
   return Math.min(cap, BASE_DELAY_MS * 2 ** Math.min(attempt, 16));

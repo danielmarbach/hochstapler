@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { SpanKind, SpanStatusCode, context, trace } from "@opentelemetry/api";
 import { randomBytes, randomInt } from "node:crypto";
-import { createReadStream, realpathSync, statSync } from "node:fs";
+import { createReadStream, mkdirSync, realpathSync, statSync } from "node:fs";
 import { pipeline } from "node:stream";
 import { extname, join, normalize, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +25,8 @@ import {
   GameSettingsSchema,
   RotateTokenRequestSchema,
   SeatUpdateRequestSchema,
+  WS_CLOSE_HANDOVER,
+  WS_CLOSE_HANDOVER_REASON,
   WS_CLOSE_TOKEN_ROTATED,
   WS_CLOSE_TOKEN_ROTATED_REASON,
   THEMES,
@@ -47,7 +49,13 @@ import type { LimitsConfig, Take } from "./limits.ts";
 import { Db, loadJournalMode } from "./db.ts";
 import { loadRetention } from "./retention.ts";
 import type { RetentionConfig } from "./retention.ts";
+import { MigrationError } from "./migrations/schema.ts";
 import type { SchemaMigration } from "./migrations/schema.ts";
+import { loadWriterLease } from "./lease/config.ts";
+import { WriterCoordinator } from "./lease/coordinator.ts";
+import type { WriterState } from "./lease/coordinator.ts";
+import { LeaseFencedError } from "./lease/types.ts";
+import type { WriterLease } from "./lease/types.ts";
 import type { StoredLobby, StoredSeat } from "./db.ts";
 import {
   httpRejected,
@@ -55,6 +63,8 @@ import {
   observeHub,
   powChallenges,
   powSolutions,
+  recordLeaseEvent,
+  recordLeaseIssue,
   tracer,
   wsConnections,
   wsOriginRejected,
@@ -120,12 +130,30 @@ export interface ServerOptions {
   allowLowSettings?: boolean;
   /** pre-hello sockets are closed after this long (default 5 s) */
   wsHelloTimeoutMs?: number;
+  /** who may open the database (default: env WRITER_LEASE, see lease/config.ts and docs/DESIGN.md #89) */
+  writerLease?: WriterLease;
+  /**
+   * Resolve only once this instance holds the writer lease and serves (default true). main.ts passes false: the HTTP
+   * server must answer liveness probes while it waits for the lease.
+   */
+  waitUntilActive?: boolean;
+  /** a former holder waits this long before it competes for the lease again (default 2 x lease duration) */
+  leaseRejoinDelayMs?: number;
+  /** pause after a lost lease / failed activation before the next attempt (default 1 s) */
+  leaseRetryDelayMs?: number;
+  /** TESTS ONLY: observe when the database is opened and closed and every write */
+  writerProbe?: { opened(): void; closed(): void; wrote(): void };
 }
 
 export interface RunningServer {
   server: Server;
   port: number;
-  hub: Hub;
+  /** the hub of the active instance; throws in standby (there is no database then) */
+  readonly hub: Hub;
+  /** standby / acquiring / active / draining */
+  writerState(): WriterState;
+  /** resolves when this instance serves; rejects when it cannot start (failed schema migration) */
+  whenActive(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -133,10 +161,13 @@ class HttpError extends Error {
   status: number;
   /** sent as Retry-After */
   retryAfterSec: number | undefined;
-  constructor(status: number, message: string, retryAfterSec?: number) {
+  /** this instance does not hold the database right now: the client may retry the same request */
+  standby: boolean;
+  constructor(status: number, message: string, retryAfterSec?: number, standby = false) {
     super(message);
     this.status = status;
     this.retryAfterSec = retryAfterSec;
+    this.standby = standby;
   }
 }
 
@@ -182,6 +213,11 @@ const POW_FAILURES: Record<PowFailure, string> = {
   expired: POW_EXPIRED_MESSAGE,
 };
 export const SERVER_FULL_MESSAGE = "Der Server ist gerade voll. Bitte später erneut.";
+/** 503 while this instance has no database (standby / handover); nothing was applied, the request can be repeated */
+export const STANDBY_MESSAGE = "Der Server wechselt gerade – bitte gleich nochmal.";
+const STANDBY_RETRY_AFTER_SEC = 2;
+const standbyError = (): HttpError =>
+  new HttpError(503, STANDBY_MESSAGE, STANDBY_RETRY_AFTER_SEC, true);
 export const SETTINGS_TOO_LOW_MESSAGE =
   "Zeitlimit mindestens 30 Sekunden (oder aus), Abwesenheit frühestens nach 2 verpassten Zügen.";
 const INVITE_WINDOW_MS = 60_000;
@@ -440,11 +476,17 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
   const testMode = isTestModeEnabled(process.env, options.testMode) ? new TestMode() : null;
   // test mode (refused in production) and test options may use settings below the floors (e2e speed)
   const floors = !(testMode || options.allowLowSettings);
-  const db = new Db(dataDir, {
-    journalMode: loadJournalMode(process.env),
-    clampSettings: floors,
-    ...(options.schemaMigrations ? { migrations: options.schemaMigrations } : {}),
-  });
+  const journalMode = loadJournalMode(process.env);
+  if (dataDir !== ":memory:") {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- DATA_DIR is operator config
+    mkdirSync(dataDir, { recursive: true });
+  }
+  // invalid lease settings abort the start before anything is opened
+  const lease =
+    options.writerLease ??
+    loadWriterLease(process.env, dataDir, {
+      onIssue: (op, issue) => recordLeaseIssue("azure-blob", op, issue),
+    });
   const build = options.buildId ?? readBuildId(staticDir);
   const limits = loadLimits(process.env, options.limits);
   const hubOpts: RoomOptions = {
@@ -487,8 +529,95 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
   if (testMode) hubOpts.diceRig = testMode.rig;
   if (options.idleMs !== undefined) hubOpts.idleMs = options.idleMs;
   if (options.sweepMs !== undefined) hubOpts.sweepMs = options.sweepMs;
-  const hub = new Hub(db, hubOpts);
-  const stopObservingHub = observeHub(hub);
+
+  // ---------- writer lease: the database and the hub exist only while this instance holds the lease ----------
+  interface Core {
+    db: Db;
+    hub: Hub;
+    stopObserving: () => void;
+  }
+  let core: Core | null = null;
+  const probe = options.writerProbe;
+  const openCore = (): void => {
+    probe?.opened();
+    const db = attemptSync("db:open", () => {
+      return new Db(dataDir, {
+        journalMode,
+        clampSettings: floors,
+        // a second process on a local disk gets "database is locked" instead of writing (defence in depth)
+        exclusiveLock: lease.kind === "file",
+        writeGuard: () => {
+          if (!coordinator.canWrite()) throw new LeaseFencedError();
+          probe?.wrote();
+        },
+        ...(options.schemaMigrations ? { migrations: options.schemaMigrations } : {}),
+      });
+    });
+    if (!db.ok) {
+      probe?.closed();
+      throw db.error;
+    }
+    const hub = new Hub(db.value, hubOpts);
+    core = { db: db.value, hub, stopObserving: observeHub(hub) };
+    // expired games go before they are resumed (no timers for games that are about to be deleted)
+    hub.startRetention();
+    hub.resumeAll();
+  };
+  /** handover / shutdown: finish queued work, persist every room, then close the database */
+  const drainCore = async (): Promise<void> => {
+    const c = core;
+    if (!c) return;
+    c.stopObserving();
+    await c.hub.shutdown();
+    core = null;
+    c.db.close();
+    probe?.closed();
+  };
+  /** lease lost: stop at once and persist nothing (another process may own the file by now) */
+  const fenceCore = (): void => {
+    const c = core;
+    if (!c) return;
+    core = null;
+    c.stopObserving();
+    c.hub.abandon();
+    c.db.close();
+    probe?.closed();
+  };
+  const coordinator = new WriterCoordinator(
+    lease,
+    {
+      activate: () => Promise.resolve().then(openCore),
+      drain: drainCore,
+      fence: fenceCore,
+      disconnect: () => disconnectAll(),
+    },
+    {
+      onEvent: (e) => {
+        recordLeaseEvent(lease.kind, e);
+        if (e.type === "state") console.warn(`[lease] ${lease.kind}: ${e.state}`);
+        if (e.type === "lost") console.error(`[lease] ${lease.kind}: lease lost, writes stopped`);
+        if (e.type === "activate-failed") console.error("[lease] activation failed:", e.error);
+      },
+      isFatal: (e) => e instanceof MigrationError,
+      ...(options.leaseRejoinDelayMs === undefined
+        ? {}
+        : { rejoinDelayMs: options.leaseRejoinDelayMs }),
+      ...(options.leaseRetryDelayMs === undefined
+        ? {}
+        : { retryDelayMs: options.leaseRetryDelayMs }),
+    },
+  );
+  /** the core of an instance that serves right now; 503 (standby) otherwise */
+  const activeCore = (): Core => {
+    if (core && coordinator.state === "active") return core;
+    throw standbyError();
+  };
+  /** queued room work refuses to run on a room that was closed meanwhile (handover): nothing applied, 503 */
+  const serve = <T>(room: GameRoom, fn: () => T): Promise<T> =>
+    room.enqueue(() => {
+      if (room.isClosed) throw standbyError();
+      return fn();
+    });
   // keyed by client address + game (never by game alone: that would let anyone lock a lobby); pruned every minute
   const inviteFails = new Map<string, { n: number; since: number }>();
   const rotations = new Map<string, number[]>();
@@ -534,9 +663,16 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         Object.values(THEMES).map((t) => ({ id: t.id, name: t.name, flag: t.flag })),
       );
     }
+    // readiness: only the instance that holds the writer lease and serves (liveness stays /api/themes)
+    if (parts[0] === "ready" && parts.length === 1 && method === "GET") {
+      const state = coordinator.state;
+      return sendJson(res, state === "active" && core ? 200 : 503, { state });
+    }
+    // everything below needs the database
+    const c = activeCore();
     if (testMode && parts[0] === "test") {
       const body = method === "POST" ? await readJson(req) : undefined;
-      const r = await testMode.handle(hub, { method, parts: parts.slice(1), body });
+      const r = await testMode.handle(c.hub, { method, parts: parts.slice(1), body });
       if (r) return sendJson(res, r.status, r.body);
     }
     if (parts[0] === "pow" && parts[1] === "challenge" && parts.length === 2 && method === "POST") {
@@ -555,7 +691,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     if (parts.length === 1 && method === "POST") {
       limited(await createLimiter.take(limitKey(ipOf(req))));
       const body = parseBody(createSchema, await readJson(req), isFloorIssue);
-      if (db.countByStatus().lobby >= limits.maxOpenLobbies)
+      if (c.db.countByStatus().lobby >= limits.maxOpenLobbies)
         throw new HttpError(503, SERVER_FULL_MESSAGE, 600);
       // last check, after everything else is valid: the challenge is consumed only for a request that creates a game
       const powHeader = req.headers[POW_HEADER];
@@ -576,8 +712,10 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         floors,
       );
       if (body.tokenId !== undefined) assertThemePiece(settings, body.tokenId);
+      // still the serving instance after the awaits above? (a handover may have started meanwhile)
+      if (activeCore() !== c) throw standbyError();
       let gameId = rid(8);
-      while (db.exists(gameId)) gameId = rid(8);
+      while (c.db.exists(gameId)) gameId = rid(8);
       const token = randomBytes(18).toString("base64url");
       const lobby: StoredLobby = {
         gameId,
@@ -600,7 +738,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         tokenHash: sha256(token),
       });
       for (const b of bots) addBotSeat(lobby, b);
-      hub.add(lobby);
+      c.hub.add(lobby);
       const out: JoinResponse = {
         gameId,
         playerId: "p1",
@@ -613,13 +751,14 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     const idParsed = GameIdSchema.safeParse(parts[1]);
     if (!idParsed.success) throw new HttpError(404, "Spiel nicht gefunden.");
     // pin the room for the whole request: the idle sweep must not dispose it while we await the body
-    const handled = await hub.withRoom(idParsed.data, (room) =>
-      roomApi(room, parts, method, req, res),
+    const handled = await c.hub.withRoom(idParsed.data, (room) =>
+      roomApi(c, room, parts, method, req, res),
     );
     if (!handled) throw new HttpError(404, "Spiel nicht gefunden.");
   }
 
   async function roomApi(
+    c: Core,
     room: GameRoom,
     parts: string[],
     method: string,
@@ -649,7 +788,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         trackBounded(inviteFails, failKey, cur);
         throw new HttpError(403, "Falscher Einladungscode.");
       }
-      return void (await room.enqueue(() => {
+      return void (await serve(room, () => {
         needLobby(room);
         if (room.lobby.seats.length >= room.lobby.maxPlayers)
           throw new HttpError(409, "Das Spiel ist voll.");
@@ -688,7 +827,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
       const header = Array.isArray(t) ? t[0] : t;
       if (!room.seatByToken(header)) throw new HttpError(403, "Ungültiger Spielerschlüssel.");
       const body = parseBody(SeatUpdateRequestSchema, await readJson(req));
-      return void (await room.enqueue(() => {
+      return void (await serve(room, () => {
         const seat = room.seatByToken(header);
         if (!seat) throw new HttpError(403, "Ungültiger Spielerschlüssel.");
         needLobby(room);
@@ -705,7 +844,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     if (sub === "seats" && parts[3] === "me" && parts[4] === "token" && method === "POST") {
       parseBody(RotateTokenRequestSchema, await readJson(req));
       const t = req.headers["x-player-token"];
-      return void (await room.enqueue(() => {
+      return void (await serve(room, () => {
         const seat = room.seatByToken(Array.isArray(t) ? t[0] : t);
         if (!seat || seat.kind !== "human")
           throw new HttpError(403, "Ungültiger Spielerschlüssel.");
@@ -728,7 +867,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     if (sub === "bots" && method === "POST") {
       hostOf(room, req);
       const level = parseBody(BotBodySchema, await readJson(req)).botLevel;
-      return void (await room.enqueue(() => {
+      return void (await serve(room, () => {
         needLobby(room);
         if (room.lobby.seats.length >= room.lobby.maxPlayers)
           throw new HttpError(409, "Das Spiel ist voll.");
@@ -743,7 +882,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
       const pidParsed = SeatIdSchema.safeParse(parts[3]);
       if (!pidParsed.success) throw new HttpError(404, "Sitz nicht gefunden.");
       const pid = pidParsed.data;
-      return void (await room.enqueue(() => {
+      return void (await serve(room, () => {
         needLobby(room);
         const seat = room.lobby.seats.find((s) => s.playerId === pid);
         if (!seat) throw new HttpError(404, "Sitz nicht gefunden.");
@@ -760,7 +899,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     if (sub === "settings" && method === "PATCH") {
       hostOf(room, req);
       const body = await readJson(req);
-      return void (await room.enqueue(() => {
+      return void (await serve(room, () => {
         needLobby(room);
         room.lobby.settings = mergeSettings(room.lobby.settings, body, floors);
         reassignTokens(room.lobby);
@@ -773,7 +912,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     if (sub === "chat" && method === "PATCH") {
       hostOf(room, req);
       const body = parseBody(ChatUpdateRequestSchema, await readJson(req));
-      return void (await room.enqueue(() => {
+      return void (await serve(room, () => {
         if (body.mute) {
           const target = room.lobby.seats.find((s) => s.playerId === body.mute?.playerId);
           if (!target) throw new HttpError(404, "Sitz nicht gefunden.");
@@ -786,10 +925,10 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     }
     if (sub === "start" && method === "POST") {
       hostOf(room, req);
-      return void (await room.enqueue(() => {
+      return void (await serve(room, () => {
         needLobby(room);
         if (room.lobby.seats.length < 2) throw new HttpError(400, "Mindestens 2 Spieler nötig.");
-        if (db.countByStatus().running >= limits.maxRunningGames)
+        if (c.db.countByStatus().running >= limits.maxRunningGames)
           throw new HttpError(503, SERVER_FULL_MESSAGE, 600);
         const players: NewPlayer[] = room.lobby.seats.map((s) => ({
           id: s.playerId,
@@ -904,7 +1043,13 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     if (outcome.error instanceof HttpError) {
       if (outcome.error.retryAfterSec !== undefined)
         res.setHeader("retry-after", String(outcome.error.retryAfterSec));
-      return sendJson(res, outcome.error.status, { error: outcome.error.message });
+      return sendJson(
+        res,
+        outcome.error.status,
+        outcome.error.standby
+          ? { error: outcome.error.message, standby: true }
+          : { error: outcome.error.message },
+      );
     }
     console.error("[http]", outcome.error);
     logOperationFailed("http", outcome.error);
@@ -943,7 +1088,20 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     socket.once("close", () => socketsPerIp.release(ip));
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
   });
+  /** handover or lost lease: every client reconnects (to whichever instance serves next) */
+  const disconnectAll = (): void => {
+    for (const c of wss.clients) c.close(WS_CLOSE_HANDOVER, WS_CLOSE_HANDOVER_REASON);
+    const stragglers = setTimeout(() => {
+      for (const c of wss.clients) if (c.readyState === c.CLOSING) c.terminate();
+    }, WS_CLOSE_GRACE_MS);
+    stragglers.unref();
+  };
   wss.on("connection", (ws) => {
+    // no database here right now: "reconnect shortly" (the browser sees a close code, an HTTP 503 would be opaque)
+    if (!core || coordinator.state !== "active") {
+      ws.close(WS_CLOSE_HANDOVER, WS_CLOSE_HANDOVER_REASON);
+      return;
+    }
     wsConnections.add(1);
     ws.once("close", () => wsConnections.add(-1));
     let room: GameRoom | null = null;
@@ -981,9 +1139,10 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
           if (!parsed.success) return err("Ungültige Nachricht.");
           const msg = parsed.data;
           if (msg.t === "ping") return void ws.send('{"t":"pong"}');
+          if (!core || coordinator.state !== "active") return err(STANDBY_MESSAGE);
           if (msg.t === "hello") {
             if (room) return err("Bereits verbunden.");
-            const r = hub.get(msg.gameId);
+            const r = core.hub.get(msg.gameId);
             if (!r) return err("Spiel nicht gefunden.");
             const token = msg.playerToken;
             const added = r.addSocket(ws, r.seatByToken(token) !== null);
@@ -1035,9 +1194,8 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
   });
   const addr = server.address();
   const port = typeof addr === "object" && addr ? addr.port : 0;
-  // expired games go before they are resumed (no timers for games that are about to be deleted)
-  hub.startRetention();
-  hub.resumeAll();
+  // a fresh process asks the current holder (if any) to hand over: blue/green deploys, docs/DESIGN.md #89
+  coordinator.start({ requestHandover: true });
 
   /**
    * Graceful shutdown (docs/DESIGN.md #44): stop accepting, finish queued work and persist every room, then
@@ -1048,9 +1206,9 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     (closing ??= (async () => {
       accepting = false;
       clearInterval(maintenance);
-      stopObservingHub();
       server.close(); // stops listening; open connections stay until they are closed below
-      await hub.shutdown();
+      // holding the lease: drain (persist every room, close the database) and release it for the next instance
+      await coordinator.stop();
       for (const c of wss.clients) c.close(WS_SERVICE_RESTART, "Service Restart");
       // a client that does not answer the close handshake must not hold up the exit
       const stragglers = setTimeout(() => {
@@ -1062,7 +1220,23 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         server.close(() => ok());
         server.closeAllConnections();
       });
-      db.close();
     })());
-  return { server, port, hub, close };
+  if (options.waitUntilActive !== false) {
+    const started = await attempt("writer:start", () => coordinator.whenActive());
+    if (!started.ok) {
+      await close();
+      throw started.error;
+    }
+  }
+  return {
+    server,
+    port,
+    get hub(): Hub {
+      if (!core) throw new Error("this instance does not hold the writer lease (standby)");
+      return core.hub;
+    },
+    writerState: () => coordinator.state,
+    whenActive: () => coordinator.whenActive(),
+    close,
+  };
 }

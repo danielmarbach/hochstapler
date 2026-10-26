@@ -9,10 +9,17 @@
 # Needs AZ_SUBSCRIPTION (environment or the gitignored .env.azure, template .env.azure.example).
 # Optional AZ_CUSTOM_DOMAIN: custom domain with a free managed certificate (DNS is checked first, README, DESIGN #53).
 #
-# Update strategy (#52): the app holds games in memory, runs bot/turn timers and writes ONE SQLite file on Azure Files
-# (mounted with `nobrl`, no byte-range locks). Two server processes on that file would corrupt state. Container Apps
-# starts the new revision before it stops the old one, so this script DEACTIVATES the running revision first (SIGTERM ->
-# games are persisted, clients get 1012 and reconnect) and only then rolls out the new one: ~30-60 s downtime.
+# Update strategy (blue/green with the writer lease, DESIGN #89; replaces the stop-first rollout of #52): the app writes
+# ONE SQLite file on Azure Files (mounted with `nobrl`, no byte-range locks), and only the holder of the writer lease (an
+# Azure Blob lease) opens it. A new revision starts with 0 % traffic and asks the running one to hand over: the old one
+# drains (persists, closes the database, releases the lease, sends its players away with 4503), the new one takes the
+# lease and becomes ready. Then the traffic moves to the new revision and the old one is deactivated: a blip of seconds.
+#   1. new revision with 0 % traffic (Multiple revision mode, 1 replica)   2. wait until it is ready (= holds the lease)
+#   3. 100 % traffic to it   4. deactivate the old revision   5. assert a single active revision
+# Fallback: not ready within HANDOVER_TIMEOUT_SEC (default 240) -> deactivate the old revision anyway (it releases the
+# lease on SIGTERM, or the break period runs out), shift the traffic, wait again, and report it.
+# One-time migration: a running revision WITHOUT WRITER_LEASE=azure-blob does not know the lease, so it is stopped
+# first (the old behaviour) before the new revision starts.
 #
 # bash 3.2 compatible (macOS): no associative arrays, no mapfile.
 set -euo pipefail
@@ -27,7 +34,7 @@ for arg in "$@"; do
     --infra-only) INFRA_ONLY=1 ;;
     --yes | -y) ASSUME_YES=1 ;;
     -h | --help)
-      sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -54,6 +61,8 @@ IMAGE_REPO="hochstapler"
 CUSTOM_DOMAIN="${AZ_CUSTOM_DOMAIN:-}"
 DOMAIN=""           # domain handed to Bicep (empty = none, or DNS not ready)
 DOMAIN_STAGE="hostname"
+TRAFFIC_REVISION="" # blue/green: the running revision keeps all traffic while the new one starts (empty = latest)
+HANDOVER_TIMEOUT_SEC="${HANDOVER_TIMEOUT_SEC:-240}"
 
 log() { printf '==> %s\n' "$*"; }
 die() {
@@ -112,6 +121,7 @@ deploy_bicep() { # deploy_bicep <deployApp true|false> [image]
     --parameters deployApp="$deploy_app" image="$image" buildId="$TAG" \
     ${HOCHSTAPLER_DATA_DIR:+dataDir="$HOCHSTAPLER_DATA_DIR"} \
     ${DOMAIN:+customDomain="$DOMAIN" customDomainStage="$DOMAIN_STAGE"} \
+    ${TRAFFIC_REVISION:+trafficRevision="$TRAFFIC_REVISION"} \
     -o none
 }
 app_exists() { az containerapp show -g "$RESOURCE_GROUP" -n "$APP_NAME" --only-show-errors > /dev/null 2>&1; }
@@ -200,49 +210,124 @@ else
   IMAGE="$ACR_SERVER/$IMAGE_REPO:$TAG"
 fi
 
-# ---------- 3. roll out: stop the old revision FIRST (single writer on the SQLite file) ----------
-if app_exists; then
-  ACTIVE="$(azq containerapp revision list -g "$RESOURCE_GROUP" -n "$APP_NAME" --query "[?properties.active].name" -o tsv)"
-  if [ -n "$ACTIVE" ]; then
-    log "Stopping the running revision before the rollout (never two processes on the same SQLite file)"
-    for rev in $ACTIVE; do
-      azq containerapp revision deactivate -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$rev" > /dev/null
+# ---------- 3. roll out: blue/green with the writer lease (DESIGN #89) ----------
+active_revisions() { azq containerapp revision list -g "$RESOURCE_GROUP" -n "$APP_NAME" --query "[?properties.active].name" -o tsv; }
+revision_lease() { # WRITER_LEASE of a revision ('' = a version without the writer lease)
+  azq containerapp revision show -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$1" \
+    --query "properties.template.containers[0].env[?name=='WRITER_LEASE'].value | [0]" -o tsv 2> /dev/null || true
+}
+replicas_of() { # fail closed: unknown = still running
+  azq containerapp replica list -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$1" --query 'length(@)' -o tsv 2> /dev/null || echo 1
+}
+stop_revisions() { # deactivate the given revisions and wait until none of their replicas is left
+  local rev left n i=0
+  [ "$#" -gt 0 ] || return 0
+  for rev in "$@"; do
+    azq containerapp revision deactivate -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$rev" > /dev/null
+  done
+  while [ "$i" -lt 40 ]; do
+    left=0
+    for rev in "$@"; do
+      n="$(replicas_of "$rev")"
+      left=$((left + ${n:-0}))
     done
-    # wait until no replica of the old revision is left
-    i=0
-    while [ "$i" -lt 40 ]; do
-      left=0
-      for rev in $ACTIVE; do
-        n="$(azq containerapp replica list -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$rev" --query 'length(@)' -o tsv 2> /dev/null || echo 1)" # fail closed: unknown = still running
-        left=$((left + ${n:-0}))
-      done
-      [ "$left" = "0" ] && break
-      i=$((i + 1))
-      sleep 3
+    [ "$left" = "0" ] && return 0
+    i=$((i + 1))
+    sleep 3
+  done
+  die "Revision(s) $* still running after 2 minutes."
+}
+revision_ready() { # 200 from /api/ready on the revision's own FQDN = this revision holds the writer lease and serves
+  local fqdn code
+  fqdn="$(azq containerapp revision show -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$1" --query properties.fqdn -o tsv 2> /dev/null || true)"
+  [ -n "$fqdn" ] || return 1
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "https://$fqdn/api/ready" || true)"
+  [ "$code" = "200" ]
+}
+wait_ready() { # wait_ready <revision> <seconds>
+  local waited=0
+  while [ "$waited" -lt "$2" ]; do
+    revision_ready "$1" && return 0
+    sleep 3
+    waited=$((waited + 3))
+  done
+  return 1
+}
+shift_traffic() {
+  azq containerapp ingress traffic set -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision-weight "$1=100" > /dev/null
+}
+assert_single_revision() { # single writer: never more than the latest revision active; fix and fail loudly otherwise
+  local rev n total=0
+  n="$(active_revisions | grep -c . || true)"
+  if [ "${n:-0}" -gt 1 ]; then
+    echo "WARNING: $n active revisions; deactivating all except $LATEST." >&2
+    for rev in $(active_revisions); do
+      [ "$rev" = "$LATEST" ] || azq containerapp revision deactivate -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$rev" > /dev/null
     done
-    [ "$left" = "0" ] || die "Old revision still running after 2 minutes; aborting before a second process starts."
   fi
-fi
+  for rev in $(active_revisions); do
+    n="$(replicas_of "$rev")"
+    total=$((total + ${n:-0}))
+  done
+  log "Active revisions: $(active_revisions | tr '\n' ' ')/ total replicas: $total"
+  [ "$total" -le 1 ] || die "More than one replica is running after the rollout; please check immediately."
+}
 
-log "Rolling out app: $IMAGE"
+OLD=""
+if app_exists; then OLD="$(active_revisions | tr '\n' ' ')"; fi
+for rev in $OLD; do
+  if [ "$(revision_lease "$rev")" != "azure-blob" ]; then
+    log "Revision $rev runs without the writer lease: stopping it first (one-time migration, old stop-first rollout)"
+    # shellcheck disable=SC2086 # word splitting of the revision list is intended
+    stop_revisions $OLD
+    OLD=""
+    break
+  fi
+done
+TRAFFIC_REVISION="$(printf '%s\n' $OLD | sed -n 1p)"
+
+log "Rolling out app: $IMAGE${TRAFFIC_REVISION:+ (new revision starts with 0 % traffic, $TRAFFIC_REVISION keeps it)}"
 deploy_bicep true "$IMAGE"
+TRAFFIC_REVISION="" # every later template deployment sends the traffic to the latest revision
 
-# unchanged template => no new revision was created; the (deactivated) latest one has to be started again
 LATEST="$(azq containerapp show -g "$RESOURCE_GROUP" -n "$APP_NAME" --query 'properties.latestRevisionName' -o tsv)"
 if [ "$(azq containerapp revision show -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$LATEST" --query 'properties.active' -o tsv)" != "true" ]; then
   log "Activating revision $LATEST"
   azq containerapp revision activate -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$LATEST" > /dev/null
 fi
+PREVIOUS=""
+for rev in $OLD; do [ "$rev" = "$LATEST" ] || PREVIOUS="$PREVIOUS $rev"; done
+HANDOVER="none"
+if [ -z "$PREVIOUS" ]; then
+  log "No other revision to hand over from"
+  shift_traffic "$LATEST"
+elif wait_ready "$LATEST" "$HANDOVER_TIMEOUT_SEC"; then
+  log "Revision $LATEST holds the writer lease; shifting 100 % traffic to it"
+  shift_traffic "$LATEST"
+  log "Deactivating the previous revision(s):$PREVIOUS"
+  # shellcheck disable=SC2086
+  stop_revisions $PREVIOUS
+  HANDOVER="blue-green"
+else
+  echo "WARNING: revision $LATEST did not become ready within ${HANDOVER_TIMEOUT_SEC} s; falling back to stopping the previous revision(s) first (outage until the new one holds the lease)." >&2
+  # shellcheck disable=SC2086
+  stop_revisions $PREVIOUS
+  shift_traffic "$LATEST"
+  wait_ready "$LATEST" "$HANDOVER_TIMEOUT_SEC" \
+    || die "Revision $LATEST did not become ready after the fallback either. Logs: az containerapp logs show -g $RESOURCE_GROUP -n $APP_NAME --type console --tail 100"
+  HANDOVER="fallback"
+fi
+assert_single_revision
 
-# ---------- 4. wait until healthy ----------
+# ---------- 4. wait until healthy through the public FQDN ----------
 FQDN="$(azq containerapp show -g "$RESOURCE_GROUP" -n "$APP_NAME" --query 'properties.configuration.ingress.fqdn' -o tsv)"
 URL="https://$FQDN"
-log "Waiting for $URL/api/themes (revision $LATEST)"
+log "Waiting for $URL/api/ready (revision $LATEST)"
 i=0
 healthy=0
 while [ "$i" -lt 60 ]; do
   state="$(azq containerapp revision show -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$LATEST" --query 'properties.healthState' -o tsv 2> /dev/null || true)"
-  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 "$URL/api/themes" || true)"
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 "$URL/api/ready" || true)"
   if [ "$state" = "Healthy" ] && [ "$code" = "200" ]; then
     healthy=1
     break
@@ -256,23 +341,6 @@ if [ "$healthy" != "1" ]; then
 fi
 
 # ---------- 5. custom domain: managed certificate, then bind it (app-level config, must not add a revision) ----------
-active_revisions() { azq containerapp revision list -g "$RESOURCE_GROUP" -n "$APP_NAME" --query "[?properties.active].name" -o tsv; }
-assert_single_revision() { # single writer (#52): never more than the latest revision active; fix and fail loudly otherwise
-  local rev n total=0
-  n="$(active_revisions | grep -c . || true)"
-  if [ "${n:-0}" -gt 1 ]; then
-    echo "WARNING: $n active revisions after the domain step; deactivating all except $LATEST." >&2
-    for rev in $(active_revisions); do
-      [ "$rev" = "$LATEST" ] || azq containerapp revision deactivate -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$rev" > /dev/null
-    done
-  fi
-  for rev in $(active_revisions); do
-    n="$(azq containerapp replica list -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$rev" --query 'length(@)' -o tsv 2> /dev/null || echo 1)"
-    total=$((total + ${n:-0}))
-  done
-  log "Active revisions: $(active_revisions | tr '\n' ' ')/ total replicas: $total"
-  [ "$total" -le 1 ] || die "More than one replica is running (see DESIGN #52); please check immediately."
-}
 DOMAIN_OK=0
 if [ -n "$DOMAIN" ]; then
   if [ "$DOMAIN_STAGE" = "hostname" ]; then
@@ -311,7 +379,7 @@ if [ -n "$DOMAIN" ]; then
 fi
 
 log "Done. Image: $IMAGE"
-log "Revision: $LATEST"
+log "Revision: $LATEST (handover: $HANDOVER)"
 echo "$URL"
 if [ "$DOMAIN_OK" = "1" ]; then
   code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$DOMAIN/api/themes" || true)"

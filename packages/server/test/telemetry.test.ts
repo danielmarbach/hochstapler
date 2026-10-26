@@ -509,3 +509,92 @@ describe("telemetry logs", () => {
     expect(r?.attributes).toEqual({ "game.id": "abc", operation: "x" });
   });
 });
+
+describe("telemetry: writer lease", () => {
+  it("logs acquisition, handover request and completion with durations and two root spans, never the lease id", async () => {
+    const { MemoryLease, MemoryLeaseStore } = await import("../src/lease/memory.ts");
+    const store = new MemoryLeaseStore();
+    const timing = { durationMs: 3000, renewIntervalMs: 200, safetyMarginMs: 1000 };
+    const leaseA = new MemoryLease(store, timing, 20);
+    const leaseB = new MemoryLease(store, timing, 20);
+    const logsBefore = otel.logs().length;
+    const spansBefore = otel.spans().length;
+    const a = await startTestServer({ writerLease: leaseA, leaseRejoinDelayMs: 60_000 });
+    const b = await startTestServer({ writerLease: leaseB, waitUntilActive: false }, a.dir);
+    await b.srv.whenActive();
+    await waitFor(() =>
+      Promise.resolve(
+        otel
+          .logs()
+          .slice(logsBefore)
+          .some((r) => r.body === "writer lease handover completed"),
+      ),
+    );
+    const records = otel.logs().slice(logsBefore);
+    const byBody = (body: string) => records.filter((r) => r.body === body);
+    const acquired = byBody("writer lease acquired");
+    expect(acquired).toHaveLength(2);
+    expect(acquired[0]?.attributes["lease.kind"]).toBe("memory");
+    expect(typeof acquired[0]?.attributes["lease.wait_ms"]).toBe("number");
+    expect(byBody("writer lease handover requested")).toHaveLength(1);
+    const completed = byBody("writer lease handover completed")[0];
+    expect(typeof completed?.attributes["lease.drain_ms"]).toBe("number");
+    expect(records.some((r) => r.attributes["lease.state"] === "draining")).toBe(true);
+    const spans = otel.spans().slice(spansBefore);
+    const acquire = spans.filter((s) => s.name === "lease.acquire");
+    const handover = spans.filter((s) => s.name === "lease.handover");
+    expect(acquire).toHaveLength(2);
+    expect(handover).toHaveLength(1);
+    for (const s of [...acquire, ...handover]) expect(s.parentSpanContext).toBeUndefined();
+    const exported = JSON.stringify([
+      records.map((r) => [r.body, r.attributes]),
+      spans.map((s) => [s.name, s.attributes, s.events]),
+    ]);
+    for (const id of [leaseA.id, leaseB.id]) expect(exported).not.toContain(id);
+    await b.stop();
+    await a.stop();
+  });
+
+  it("a renewal that fails logs a warning and the loss an error record", async () => {
+    const { MemoryLease, MemoryLeaseStore } = await import("../src/lease/memory.ts");
+    const lease = new MemoryLease(
+      new MemoryLeaseStore(),
+      { durationMs: 3000, renewIntervalMs: 200, safetyMarginMs: 1000 },
+      20,
+    );
+    const before = otel.logs().length;
+    const s = await startTestServer({ writerLease: lease, leaseRetryDelayMs: 60_000 });
+    lease.renewBehaviour = "fail";
+    await waitFor(() =>
+      Promise.resolve(
+        otel
+          .logs()
+          .slice(before)
+          .some((r) => r.severityText === "ERROR"),
+      ),
+    );
+    const records = otel.logs().slice(before);
+    const failed = records.find((r) => r.body === "writer lease renewal failed");
+    expect(failed?.severityText).toBe("WARN");
+    expect(failed?.attributes["lease.result"]).toBe("lost");
+    const lost = records.find((r) => r.body === "writer lease lost, writes stopped");
+    expect(lost?.severityText).toBe("ERROR");
+    expect(JSON.stringify(records.map((r) => r.attributes))).not.toContain(lease.id);
+    await s.dispose();
+  });
+
+  it("a failed Azure lease request logs only the operation, status and service error code", async () => {
+    const { recordLeaseIssue } = await import("../src/telemetry.ts");
+    const before = otel.logs().length;
+    recordLeaseIssue("azure-blob", "renew", {
+      status: 409,
+      code: "LeaseIdMismatchWithLeaseOperation",
+    });
+    expect(otel.logs().slice(before)[0]?.attributes).toEqual({
+      "lease.kind": "azure-blob",
+      "lease.operation": "renew",
+      "http.response.status_code": 409,
+      "lease.error_code": "LeaseIdMismatchWithLeaseOperation",
+    });
+  });
+});

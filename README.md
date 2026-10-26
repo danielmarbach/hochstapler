@@ -96,6 +96,9 @@ For permanent operation a small host (Fly.io, Render, VPS) is suitable; game sta
 | `POW_TTL_SEC` / `POW_CAPACITY` | 300 / 10000 | validity of a challenge, and how many live challenges the replay store holds (full = no new challenge, 503) |
 | `POW_CHALLENGE_BURST` / `POW_CHALLENGES_PER_HOUR` | 20 / 120 | per client: challenges issued |
 | `POW_HMAC_KEY` | random per process | optional fixed signing secret (32+ characters); never logged |
+| `WRITER_LEASE` | `file` | who may open the database (DESIGN #89): `file` = lock file `writer.lease` next to the database (**local disks only**, never an SMB/NFS share); `azure-blob` = Azure Blob lease (set by `infra/main.bicep`); `none` = one in-process instance (tests; refused in production). A second instance on the same data asks the running one to hand over and takes over within seconds |
+| `WRITER_LEASE_ACCOUNT_URL` / `WRITER_LEASE_CONTAINER` | – | `azure-blob` only: `https://<account>.blob.core.windows.net` (no query, no SAS) and the container holding the lease blob |
+| `AZURE_CLIENT_ID` | – | `azure-blob` only: client id of the user-assigned managed identity; the token comes from the Container Apps identity endpoint (`IDENTITY_ENDPOINT` / `IDENTITY_HEADER`, set by the platform). No account key |
 | `POLY_TEST_MODE` | – | only `1` for the E2E tests (deterministic dice/fixtures); never in production |
 
 ## Hosting with Docker
@@ -251,7 +254,7 @@ docker inspect --format '{{.State.Health.Status}}' $(docker compose ps -q hochst
 ## Azure Container Apps
 
 Hosting on Azure with the default HTTPS domain (`https://hochstapler.<env>.switzerlandnorth.azurecontainerapps.io`), entirely in
-Bicep (`infra/main.bicep`). Decisions: #50 to #52 in [docs/DESIGN.md](docs/DESIGN.md).
+Bicep (`infra/main.bicep`). Decisions: #50 to #52 and #89 in [docs/DESIGN.md](docs/DESIGN.md).
 
 **Prerequisites:** Azure CLI (`az login`), access to the subscription and the existing resource group `Hochstapler`
 (it is not created). Copy `.env.azure.example` to `.env.azure` once (listed in `.gitignore`) and enter the
@@ -272,16 +275,28 @@ The script checks login, subscription and resource group, warns about uncommitte
 `<sha>-dirty-<time>`), tags the image with the short Git SHA (= `BUILD_ID`, clients reload on a new version) and prints the
 HTTPS URL at the end. A run without changes builds nothing new.
 
-**How an update works (important):** The server keeps games in memory, runs bot timers and writes a single
-SQLite file. Two processes on this file at the same time destroy it. However, Container Apps starts new revisions before
-stopping the old ones. Therefore the script stops the running revision first (`SIGTERM`: games are saved, clients
-reconnect), waits until no replica is running any more, and only then creates the new one. This costs **about 60-90 s of downtime**
-per update. So **never deploy the Bicep without the script** and never run a second replica/revision.
+**How an update works (important, DESIGN #89):** The server keeps games in memory, runs bot timers and writes a single
+SQLite file; two processes writing it at the same time destroy it. Only the holder of the **writer lease** (an Azure Blob
+lease on `leases/writer.lease`, renewed every 3 s, 15 s duration) opens the file. The script rolls out blue/green:
+
+1. the new revision starts with **0 % traffic** next to the running one and asks it to hand over (Break Lease, 15 s);
+2. the old revision drains (stops accepting actions, persists every game, pauses timers, closes the database), releases
+   the lease and sends its players away with WebSocket code 4503; the new one takes the lease and becomes **ready**
+   (`/api/ready` = 200 only while holding the lease; liveness stays `/api/themes`);
+3. the script shifts **100 % traffic** to the new revision, 4. deactivates the old one, 5. checks that exactly one revision
+   and replica is left.
+
+Players see the "reconnecting" notice for a few seconds (until the traffic shift), no error page. If the new revision is not
+ready within `HANDOVER_TIMEOUT_SEC` (default 240), the script falls back to stopping the old revision first and says so. The
+very first rollout of this version stops the old revision first (it does not know the lease yet). So **never deploy the Bicep
+without the script**, and never open the database without holding the lease.
 
 **What gets created** (everything in the resource group, names from `uniqueString`): Container Registry Basic (no admin user,
 pull via managed identity), Storage Account Standard LRS with Azure Files share `data` (mount `/data`, `nobrl`,
 `uid/gid 1000`, soft delete 14 days), Log Analytics (30 days, daily cap 0.1 GB), Container Apps Environment, the app
-(1 replica, 0.5 vCPU / 1 GiB, probes on `/api/themes`, `terminationGracePeriodSeconds: 20`). The app runs with
+(1 replica, 0.5 vCPU / 1 GiB, startup/liveness probes on `/api/themes`, readiness on `/api/ready`,
+`terminationGracePeriodSeconds: 20`), a private blob container `leases` for the writer lease with the role "Storage Blob Data
+Contributor" for the app's managed identity on that container only (no account key, no SAS). The app runs with
 `NODE_ENV=production`, `HTTPS_ONLY=1`, `DATA_DIR`, `SQLITE_JOURNAL_MODE=delete` (WAL is unsafe over SMB). The database folder
 is determined by `dataDir` in `infra/main.bicepparam` (default `/data`; currently `/data/v2`, see #52).
 
@@ -336,7 +351,7 @@ az containerapp revision activate -g Hochstapler -n hochstapler --revision <revi
 
 (`--auth-mode login` needs the role "Storage File Data Privileged Contributor" and `--enable-file-backup-request-intent`;
 alternatively in the Azure portal under the storage account -> file shares -> `data`.) Back up the old file before
-restoring; never run two revisions at the same time.
+restoring; deactivate **every** active revision first (a standby revision would take the lease over and open the file).
 
 **Cleaning up:** The resource group stays; only the created resources are deleted:
 

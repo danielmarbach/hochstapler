@@ -65,6 +65,17 @@ describe("trusted proxy hops (DESIGN #59)", () => {
   it("the LAN compose file trusts no proxy (default 0)", () => {
     expect(read("compose.yaml")).not.toContain("TRUST_PROXY_HOPS");
   });
+  it("compose deployments use the file writer lease on their local volume (DESIGN #89)", () => {
+    for (const [file, service] of [
+      ["compose.yaml", "hochstapler"],
+      ["deploy/compose.prod.yaml", "app"],
+    ] as const) {
+      const env = (
+        parse(read(file)) as { services: Record<string, { environment: Record<string, string> }> }
+      ).services[service]?.environment;
+      expect(env?.["WRITER_LEASE"], file).toBe("file");
+    }
+  });
 });
 
 describe("compose files", () => {
@@ -185,5 +196,49 @@ describe("telemetry deployment (DESIGN #54)", () => {
   });
   it("compose.yaml has no telemetry dashboard any more: local telemetry is the Aspire AppHost (DESIGN #71)", () => {
     expect(Object.keys(services("compose.yaml"))).toEqual(["hochstapler"]);
+  });
+});
+
+describe("writer lease on Azure (DESIGN #89)", () => {
+  const bicep = read("infra/main.bicep");
+  it("leases one blob in a private container of the StorageV2 account", () => {
+    expect(bicep).toContain("kind: 'StorageV2'");
+    expect(bicep).toContain("Microsoft.Storage/storageAccounts/blobServices/containers@");
+    expect(bicep).toContain("var leaseContainerName = 'leases'");
+    expect(bicep).toMatch(/resource leaseContainer [^\n]*\n[^}]*publicAccess: 'None'/);
+  });
+  it("grants Storage Blob Data Contributor to the app identity on that container only, no keys or SAS", () => {
+    expect(bicep).toContain("var blobContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'");
+    expect(bicep).toMatch(
+      /resource leaseRole 'Microsoft\.Authorization\/roleAssignments@[^']+' = \{\s*scope: leaseContainer\s/,
+    );
+    expect(bicep).toMatch(
+      /resource leaseRole[\s\S]*?principalId: pullIdentity\.properties\.principalId/,
+    );
+    expect(bicep).toContain("dependsOn: [acrPull, leaseRole]");
+    expect(bicep).not.toMatch(/listAccountSas|listServiceSas/);
+    // the lease settings are plain values: an endpoint URL and names, never a key
+    for (const line of bicep.split("\n").filter((l) => /WRITER_LEASE|AZURE_CLIENT_ID/.test(l))) {
+      expect(line).not.toMatch(/listKeys|key|sas|secret/i);
+    }
+  });
+  it("configures the app for the blob lease with the user-assigned identity", () => {
+    expect(bicep).toContain("{ name: 'WRITER_LEASE', value: 'azure-blob' }");
+    expect(bicep).toContain(
+      "{ name: 'WRITER_LEASE_ACCOUNT_URL', value: storage.properties.primaryEndpoints.blob }",
+    );
+    expect(bicep).toContain("{ name: 'WRITER_LEASE_CONTAINER', value: leaseContainerName }");
+    expect(bicep).toContain("{ name: 'AZURE_CLIENT_ID', value: pullIdentity.properties.clientId }");
+  });
+  it("readiness means 'holds the lease'; liveness and startup work in standby", () => {
+    expect(bicep).toContain("var readyPath = '/api/ready'");
+    expect(bicep).toMatch(/type: 'Readiness'\s*httpGet: \{ path: readyPath, port: port \}/);
+    expect(bicep).toMatch(/type: 'Liveness'\s*httpGet: \{ path: probePath, port: port \}/);
+    expect(bicep).toMatch(/type: 'Startup'\s*httpGet: \{ path: probePath, port: port \}/);
+  });
+  it("a new revision can start with 0 % traffic while the running one keeps it", () => {
+    expect(bicep).toContain("param trafficRevision string = ''");
+    expect(bicep).toContain("[{ revisionName: trafficRevision, weight: 100 }]");
+    expect(bicep).toContain("[{ latestRevision: true, weight: 100 }]");
   });
 });

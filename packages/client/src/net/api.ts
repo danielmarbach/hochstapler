@@ -25,7 +25,23 @@ function errorMessage(data: unknown): string | null {
   return null;
 }
 
-/** The server is trusted: a successful response body is typed as T without further validation. */
+/** How long a request keeps being repeated while no server instance holds the database (handover). */
+const STANDBY_RETRY_MS = 30_000;
+
+function standbyAnswer(status: number, data: unknown): boolean {
+  return (
+    status === 503 &&
+    typeof data === "object" &&
+    data !== null &&
+    (data as { standby?: unknown }).standby === true
+  );
+}
+
+/**
+ * The server is trusted: a successful response body is typed as T without further validation. A 503 with
+ * `standby: true` means this instance has no database right now (writer-lease handover) and applied nothing: the same
+ * request is repeated after 0.5-1.5 s until an instance serves it, for up to half a minute.
+ */
 async function call<T>(
   method: string,
   url: string,
@@ -33,6 +49,28 @@ async function call<T>(
   token?: string | null,
   extraHeaders: Record<string, string> = {},
 ): Promise<T> {
+  const giveUpAt = Date.now() + STANDBY_RETRY_MS;
+  for (;;) {
+    const r = await callOnce<T>(method, url, body, token, extraHeaders);
+    if (r.ok) {
+      return r.value;
+    }
+    if (!r.standby || Date.now() >= giveUpAt) {
+      throw r.error;
+    }
+    await new Promise((ok) => setTimeout(ok, 500 + Math.random() * 1000));
+  }
+}
+
+type Attempt<T> = { ok: true; value: T } | { ok: false; error: Error; standby: boolean };
+
+async function callOnce<T>(
+  method: string,
+  url: string,
+  body?: unknown,
+  token?: string | null,
+  extraHeaders: Record<string, string> = {},
+): Promise<Attempt<T>> {
   const sent = await attempt("api:fetch", () =>
     fetch(url, {
       method,
@@ -45,7 +83,7 @@ async function call<T>(
     }),
   );
   if (!sent.ok) {
-    throw new UiError("net.unreachable");
+    return { ok: false, error: new UiError("net.unreachable"), standby: false };
   }
   const res = sent.value;
   const text = await res.text();
@@ -54,12 +92,14 @@ async function call<T>(
   const data: unknown = parsed.ok ? parsed.value : null;
   if (!res.ok) {
     const message = errorMessage(data);
-    throw message === null ? new UiError("net.status", { status: res.status }) : new Error(message);
+    const error =
+      message === null ? new UiError("net.status", { status: res.status }) : new Error(message);
+    return { ok: false, error, standby: standbyAnswer(res.status, data) };
   }
   if (data === null) {
-    throw new UiError("net.invalidResponse");
+    return { ok: false, error: new UiError("net.invalidResponse"), standby: false };
   }
-  return data as T;
+  return { ok: true, value: data as T };
 }
 
 export const api = {

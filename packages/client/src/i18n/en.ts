@@ -43,6 +43,7 @@ export const en = {
   "net.catchingUp": "Replaying {n} actions …",
   "net.newVersion": "New version – loading…",
   "net.updating": "Installing an update – back in a moment…",
+  "net.handover": "Switching servers – back in a moment…",
   "srv.restarting": "The server is being updated – please try again in a moment.",
   "srv.spectatorChat": "Spectators cannot chat.",
   "srv.spectatorPlay": "Spectators cannot play.",
@@ -76,6 +77,7 @@ export const en = {
   "srv.invalidToken": "Invalid player key.",
   "srv.rateLimited": "Too many requests. Please try again later.",
   "srv.serverFull": "The server is full right now. Please try again later.",
+  "srv.standby": "The server is switching over – please try again in a moment.",
   "srv.settingsTooLow":
     "Time limit must be at least 30 seconds (or off); away after at least 2 missed turns.",
 

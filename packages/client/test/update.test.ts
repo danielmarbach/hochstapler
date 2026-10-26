@@ -6,6 +6,7 @@ import {
   reconnectDelay,
   whenIdle,
 } from "../src/net/update.ts";
+import { WS_CLOSE_HANDOVER } from "@poly/engine";
 
 describe("closeKind", () => {
   it("treats 1012 (Service Restart) as a deploy, everything else as a normal close", () => {
@@ -14,6 +15,10 @@ describe("closeKind", () => {
     for (const code of [1000, 1001, 1005, 1006, 1008, 1013, 4408]) {
       expect(closeKind(code)).toBe("normal");
     }
+  });
+
+  it("treats 4503 (writer-lease handover) as a handover: another instance takes over within seconds", () => {
+    expect(closeKind(WS_CLOSE_HANDOVER)).toBe("handover");
   });
 });
 
@@ -27,6 +32,17 @@ describe("reconnectDelay", () => {
 
   it("retries fast after a restart: 500 ms, 1 s, 2 s and then every 2 s", () => {
     expect(seq("restart", 7)).toEqual([500, 1000, 2000, 2000, 2000, 2000, 2000]);
+  });
+
+  it("after a handover retries fast with jitter, so the reconnects of all players do not arrive at once", () => {
+    const low = Array.from({ length: 8 }, (_, i) => reconnectDelay("handover", i, () => 0));
+    const high = Array.from({ length: 8 }, (_, i) => reconnectDelay("handover", i, () => 0.999));
+    expect(low).toEqual([250, 500, 1000, 1000, 1000, 1000, 1000, 1000]);
+    for (const [i, d] of high.entries()) {
+      expect(d).toBeGreaterThan(low[i] ?? 0);
+      expect(d).toBeLessThan(2 * (low[i] ?? 0));
+    }
+    expect(reconnectDelay("handover", 10_000, () => 0.5)).toBeLessThan(2000);
   });
 
   it("never exceeds the cap, even for absurd attempt counts", () => {

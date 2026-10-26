@@ -36,6 +36,7 @@ export const gsw = {
   "net.catchingUp": "Spil {n} Aktione noh …",
   "net.newVersion": "Neui Version – wird glade…",
   "net.updating": "Update wird ygspilt – gly weder da…",
+  "net.handover": "Server wächslet – gly weder da…",
   "srv.restarting": "De Server wird grad aktualisiert – probier s gly nomal.",
   "srv.spectatorChat": "Zueschauer chönd ned chatä.",
   "srv.spectatorPlay": "Zueschauer chönd ned mitspile.",
@@ -69,6 +70,7 @@ export const gsw = {
   "srv.invalidToken": "Ungültige Spilerschlüssel.",
   "srv.rateLimited": "Z vill Aafroge. Bitte spöter nomol.",
   "srv.serverFull": "De Server isch grad voll. Bitte spöter nomol.",
+  "srv.standby": "De Server wächslet grad – probier s gly nomal.",
   "srv.settingsTooLow":
     "S Zytlimit muess mindeschtens 30 Sekunde sii (oder us), abwäsend früehestens nach 2 verpasste Züg.",
 

@@ -112,13 +112,15 @@ function open(): void {
     // our own token renewal closes this socket on purpose: rotateSeatToken() reconnects with the new token
     const rotatedByUs = rotating && ev.code === WS_CLOSE_TOKEN_ROTATED;
     if (!closedByUs && !rotatedByUs && currentGame === gameId) {
-      if (closeKind(ev.code) === "restart" && reconnectKind !== "restart") {
-        reconnectKind = "restart";
+      // a deploy (1012) or a writer-lease handover (4503): the next server is there within seconds, retry fast
+      const kind = closeKind(ev.code);
+      if (kind !== "normal" && reconnectKind !== kind) {
+        reconnectKind = kind;
         retry = 0;
-        toast(t("net.updating"), "info", undefined, 8000);
+        toast(t(kind === "restart" ? "net.updating" : "net.handover"), "info", undefined, 8000);
       }
-      const kind = retry < FAST_RETRY_ATTEMPTS ? reconnectKind : "normal";
-      retryTimer = window.setTimeout(open, reconnectDelay(kind, retry++));
+      const pace = retry < FAST_RETRY_ATTEMPTS ? reconnectKind : "normal";
+      retryTimer = window.setTimeout(open, reconnectDelay(pace, retry++));
     }
   };
   ws.onerror = () => {

@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Fake Azure CLI for deploy-script tests (test/deploy-script.test.ts). Never talks to Azure.
+# State in $FAKE_AZ_STATE: revisions (one per line: name active image writer_lease), calls.log.
+# FAKE_NEW_LEASE: WRITER_LEASE of revisions created by a deployment (default azure-blob).
+set -euo pipefail
+S="$FAKE_AZ_STATE"
+REVS="$S/revisions"
+touch "$REVS"
+echo "az $*" >> "$S/calls.log"
+args=" $* "
+arg_after() { # value after option $1
+  local prev="" a
+  for a in "$@"; do
+    [ "$prev" = "$OPT" ] && { printf '%s' "$a"; return 0; }
+    prev="$a"
+  done
+}
+opt() { OPT="$1"; shift; arg_after "$@"; }
+param() { # --parameters key=value
+  local a
+  for a in "${@:2}"; do case "$a" in "$1="*) printf '%s' "${a#*=}" ;; esac; done
+}
+latest() { tail -n 1 "$REVS" | cut -d' ' -f1; }
+field() { awk -v r="$1" -v f="$2" '$1 == r { print $f }' "$REVS"; }
+set_active() { awk -v r="$1" -v v="$2" '{ if ($1 == r) $2 = v; print }' "$REVS" > "$REVS.tmp" && mv "$REVS.tmp" "$REVS"; }
+
+case "$args" in
+  *" account show "*)
+    case "$args" in *"--query name"*) echo "Fake subscription" ;; esac ;;
+  *" account set "* | *" extension show "* | *" bicep build "*) ;;
+  *" group exists "*) echo true ;;
+  *" deployment group create "*)
+    deploy_app="$(param deployApp "$@")"
+    image="$(param image "$@")"
+    if [ "$deploy_app" = "true" ]; then
+      if [ ! -s "$REVS" ] || [ "$(field "$(latest)" 3)" != "$image" ]; then
+        n=$(($(wc -l < "$REVS") + 1))
+        echo "app--r$n true $image ${FAKE_NEW_LEASE-azure-blob}" >> "$REVS"
+      fi
+    fi ;;
+  *" acr list "*) echo crhochstaplerfake ;;
+  *" acr show "*) echo crfake.azurecr.io ;;
+  *" acr repository show-tags "*) echo "$DEPLOY_TAG" ;;
+  *" containerapp env list "*) echo cae-fake ;;
+  *" containerapp revision list "*) awk '$2 == "true" { print $1 }' "$REVS" ;;
+  *" containerapp revision show "*)
+    rev="$(opt --revision "$@")"
+    case "$args" in
+      *"properties.active"*) field "$rev" 2 ;;
+      *"WRITER_LEASE"*) field "$rev" 4 ;;
+      *"properties.fqdn"*) echo "$rev.fake.test" ;;
+      *"healthState"*) echo Healthy ;;
+    esac ;;
+  *" containerapp revision deactivate "*) set_active "$(opt --revision "$@")" false ;;
+  *" containerapp revision activate "*) set_active "$(opt --revision "$@")" true ;;
+  *" containerapp replica list "*)
+    [ "$(field "$(opt --revision "$@")" 2)" = "true" ] && echo 1 || echo 0 ;;
+  *" containerapp ingress traffic set "*) ;;
+  *" containerapp show "*)
+    [ -s "$REVS" ] || exit 3
+    case "$args" in
+      *"containers[0].image"*) field "$(latest)" 3 ;;
+      *"latestRevisionName"*) latest ;;
+      *"ingress.fqdn"*) echo app.fake.test ;;
+    esac ;;
+  *) echo "fake az: unhandled: $*" >&2; exit 9 ;;
+esac

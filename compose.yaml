@@ -26,6 +26,8 @@ services:
       - "8787:8787"
     environment:
       BOT_DELAY_MS: "700"
+      # writer lease (DESIGN #89): lock file next to the database; safe because the volume is a local disk
+      WRITER_LEASE: file
     volumes:
       - hochstapler-data:/data
 

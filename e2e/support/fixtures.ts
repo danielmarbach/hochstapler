@@ -6,7 +6,7 @@ import type { StatePatch } from "../../packages/server/src/test-mode.ts";
 import { Actor } from "./actor.ts";
 import type { Layout } from "./actor.ts";
 import { Api } from "./api.ts";
-import { DeployableServer } from "./deploy.ts";
+import { Balancer, DeployableServer } from "./deploy.ts";
 import type { Seat } from "./api.ts";
 
 export const PLAYER_NAMES = ["Anna", "Ben", "Clara", "Heidi vom Pilatus"] as const;
@@ -98,6 +98,9 @@ export class World {
   api: Api;
   /** a server of this scenario's own (update scenarios); null: the shared server of the suite */
   ownServer: DeployableServer | null = null;
+  /** handover scenarios: the balancer the browsers talk to, and the instance that took over */
+  balancer: Balancer | null = null;
+  successor: DeployableServer | null = null;
   themeId = "ch";
   seats = new Map<string, Seat>();
   game: Seat | null = null;
@@ -132,6 +135,27 @@ export class World {
     this.api = new Api(server.url);
     this.contextOptions = { ...this.contextOptions, baseURL: server.url };
     return server;
+  }
+
+  /** A server of its own behind a balancer, using the file writer lease (handover scenarios). */
+  async useBalancedServer(): Promise<void> {
+    const server = await DeployableServer.start(null, { E2E_FAST_LEASE: "1" });
+    this.ownServer = server;
+    this.balancer = await Balancer.start(server.port);
+    this.api = new Api(this.balancer.url);
+    this.contextOptions = { ...this.contextOptions, baseURL: this.balancer.url };
+  }
+
+  /**
+   * Blue/green like scripts/azure-deploy.sh: a second instance starts on the same data, takes the writer lease over
+   * (the first one drains and sends its players away with 4503), then the traffic moves to it.
+   */
+  async handOver(): Promise<void> {
+    if (!this.ownServer || !this.balancer) {
+      throw new Error("handOver needs useBalancedServer first");
+    }
+    this.successor = await this.ownServer.startSibling();
+    this.balancer.switchTo(this.successor.port);
   }
 
   get theme(): Theme {
@@ -290,6 +314,8 @@ export class World {
       violations.push(...found.map((v) => `${a.name}: ${v}`));
       await a.context.close();
     }
+    await this.successor?.stop();
+    await this.balancer?.close();
     await this.ownServer?.dispose();
     if (violations.length > 0) {
       throw new Error(`Content-Security-Policy violated:\n${violations.join("\n")}`);

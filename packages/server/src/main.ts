@@ -11,10 +11,7 @@ const telemetry = await startTelemetry(process.env, {
 if (telemetry.enabled)
   console.log("[hochstapler] OpenTelemetry aktiv (OTEL_EXPORTER_OTLP_ENDPOINT gesetzt)");
 
-let running: Awaited<ReturnType<typeof startServer>>;
-try {
-  running = await startServer();
-} catch (e) {
+const abortStartup = async (e: unknown): Promise<never> => {
   if (e instanceof MigrationError) {
     console.error(`[hochstapler] Startup aborted, the database was not changed: ${e.message}`);
     emitLog("error", "startup aborted, database not changed", {}, e);
@@ -22,7 +19,20 @@ try {
     process.exit(1);
   }
   throw e;
+};
+
+let running: Awaited<ReturnType<typeof startServer>>;
+try {
+  // listen at once (liveness, static files) and open the database when the writer lease is ours (DESIGN #89)
+  running = await startServer({ waitUntilActive: false });
+} catch (e) {
+  running = await abortStartup(e);
 }
+// the schema migration runs when the lease is acquired: a failure there still ends the process
+running.whenActive().catch(async (e: unknown) => {
+  await running.close();
+  await abortStartup(e);
+});
 // the service version and name are resource attributes of every record
 emitLog("info", "server started", {
   "process.runtime.version": process.version,

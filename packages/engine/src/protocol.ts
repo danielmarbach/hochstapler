@@ -92,6 +92,13 @@ export const WS_CLOSE_TOKEN_ROTATED_REASON = "token rotated";
 export const WS_CLOSE_GAME_EXPIRED = 4404;
 export const WS_CLOSE_GAME_EXPIRED_REASON = "game expired";
 
+/**
+ * WebSocket close code + reason when this server instance stops serving because another one takes over the database
+ * (writer-lease handover, DESIGN #89) or it lost the lease: reconnect shortly, nothing is wrong.
+ */
+export const WS_CLOSE_HANDOVER = 4503;
+export const WS_CLOSE_HANDOVER_REASON = "handover, reconnect";
+
 // ---- WebSocket: ws(s)://host/ws ----
 export type ClientMessage =
   | { t: "hello"; gameId: string; playerToken: string | null }

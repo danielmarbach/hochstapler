@@ -18,6 +18,8 @@ import {
 import { createHmac, randomBytes } from "node:crypto";
 import { GameError, attempt } from "@poly/engine";
 import type { Attributes, Meter, MeterProvider, ObservableResult, Span } from "@opentelemetry/api";
+import type { LeaseEvent } from "./lease/coordinator.ts";
+import type { LeaseIssue, LeaseOp } from "./lease/azure-blob.ts";
 
 /** Per-process secret: the hashes below cannot be brute-forced back to ids (47 bits) from exported telemetry. */
 const SPAN_ID_KEY = randomBytes(32);
@@ -327,6 +329,7 @@ const LOG_ATTRIBUTE_ALLOW = [
   "process.runtime.version",
   "shutdown.signal",
   "bot.",
+  "lease.", // writer lease: kind, state, durations, operation; never the lease id (it is never handed to telemetry)
 ];
 
 /**
@@ -373,4 +376,60 @@ export function dbTimed<T>(
     fn,
     { kind: SpanKind.CLIENT },
   );
+}
+
+// ---------- writer lease (docs/DESIGN.md #89) ----------
+// Logs for every transition that matters to an operator plus two root spans with real durations: `lease.acquire`
+// (from starting to wait until serving) and `lease.handover` (the drain of the instance that hands over). The lease id
+// never reaches this function: LeaseEvent has no field for it.
+
+/** A span for work that already happened, as its own trace root (lease work belongs to no request). */
+function recordRootSpan(name: string, durationMs: number, attrs: Attributes): void {
+  const end = epochNow();
+  tracer()
+    .startSpan(name, { startTime: end - durationMs, attributes: attrs, root: true })
+    .end(end);
+}
+
+export function recordLeaseEvent(kind: string, e: LeaseEvent): void {
+  const base = { "lease.kind": kind };
+  switch (e.type) {
+    case "state":
+      emitLog("info", "writer state changed", { ...base, "lease.state": e.state });
+      return;
+    case "acquired":
+      recordRootSpan("lease.acquire", e.waitedMs, base);
+      emitLog("info", "writer lease acquired", {
+        ...base,
+        "lease.wait_ms": Math.round(e.waitedMs),
+      });
+      return;
+    case "renew-failed":
+      emitLog("warn", "writer lease renewal failed", { ...base, "lease.result": e.result });
+      return;
+    case "handover-requested":
+      emitLog("info", "writer lease handover requested", base);
+      return;
+    case "handover-completed":
+      recordRootSpan("lease.handover", e.drainMs, base);
+      emitLog("info", "writer lease handover completed", {
+        ...base,
+        "lease.drain_ms": Math.round(e.drainMs),
+      });
+      return;
+    case "lost":
+      emitLog("error", "writer lease lost, writes stopped", base);
+      return;
+    case "activate-failed":
+      emitLog("error", "writer activation failed", base, e.error);
+      return;
+  }
+}
+
+/** A lease request that failed (status code and the service's error code only). */
+export function recordLeaseIssue(kind: string, op: LeaseOp, issue: LeaseIssue): void {
+  const attrs: Attributes = { "lease.kind": kind, "lease.operation": op };
+  if (issue.status !== undefined) attrs["http.response.status_code"] = issue.status;
+  if (issue.code !== undefined) attrs["lease.error_code"] = issue.code;
+  emitLog("warn", "writer lease request failed", attrs, issue.error);
 }

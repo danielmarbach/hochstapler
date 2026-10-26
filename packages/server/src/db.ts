@@ -96,6 +96,17 @@ export interface DbOptions {
   now?: () => Date;
   /** VACUUM after a sweep only when at least this many bytes are free (default 1 MiB) */
   vacuumMinFreeBytes?: number;
+  /**
+   * Called before every write; throws (LeaseFencedError) when this process does not hold the writer lease any more
+   * (docs/DESIGN.md #89). Default: always allowed.
+   */
+  writeGuard?: () => void;
+  /**
+   * locking_mode=EXCLUSIVE, taken at open: a second process on the same file gets "database is locked" instead of
+   * writing. Defence in depth for LOCAL disks only; on the Azure Files mount with `nobrl` the locks stay inside one
+   * container and protect nothing (there the writer lease is the only guard).
+   */
+  exclusiveLock?: boolean;
 }
 
 export class Db {
@@ -104,6 +115,7 @@ export class Db {
   private readonly clampSettings: boolean;
   private readonly log: (message: string) => void;
   private readonly vacuumMinFreeBytes: number;
+  private readonly guard: () => void;
   /** What the startup schema migration did (from/to version, backup path). */
   readonly migration: MigrationReport;
 
@@ -117,10 +129,15 @@ export class Db {
     this.clampSettings = opts.clampSettings ?? true;
     this.log = opts.log ?? ((m: string) => console.error(m));
     this.vacuumMinFreeBytes = opts.vacuumMinFreeBytes ?? DEFAULT_VACUUM_MIN_FREE_BYTES;
+    this.guard = opts.writeGuard ?? (() => undefined);
     this.db = new DatabaseSync(dbFile ?? ":memory:");
     const migrated = attemptSync("db:migrate", () => {
+      // before journal_mode: in exclusive mode WAL needs no shared-memory file
+      if (opts.exclusiveLock) this.db.exec("PRAGMA locking_mode = EXCLUSIVE");
       // the value comes from a closed enum (JournalMode), never from request input
       this.db.exec(`PRAGMA journal_mode = ${(opts.journalMode ?? "wal").toUpperCase()}`);
+      // take the exclusive lock now (it is kept until close), not at the first game write
+      if (opts.exclusiveLock) this.db.exec("BEGIN EXCLUSIVE; COMMIT");
       const migrateOpts: Parameters<typeof migrateSchema>[1] = { dbFile };
       if (opts.migrations) migrateOpts.migrations = opts.migrations;
       if (opts.now) migrateOpts.now = opts.now;
@@ -139,6 +156,7 @@ export class Db {
    * timers omit it: they update `updated_at` only, so a bot-heavy game still expires. A new game starts "active".
    */
   save(lobby: StoredLobby, state: GameState | null, activityAt?: number): void {
+    this.guard();
     dbTimed("save", dbWriteDuration, () => this.saveRow(lobby, state, activityAt));
   }
 
@@ -172,6 +190,7 @@ export class Db {
 
   /** A seated human opened the game (no state change): counts as activity. */
   touchActivity(gameId: string, at: number): void {
+    this.guard();
     this.db.prepare("UPDATE games SET last_activity_at = ? WHERE id = ?").run(at, gameId);
   }
 
@@ -208,6 +227,7 @@ export class Db {
    * so nothing replays it. All or nothing: on an error the database is unchanged.
    */
   purge(ids: readonly string[], keep: number): PurgeResult {
+    this.guard();
     const result: PurgeResult = { games: 0, expiredActions: 0, trimmedActions: 0 };
     this.db.exec("BEGIN IMMEDIATE");
     try {
@@ -251,6 +271,7 @@ export class Db {
    * space is worth it. Returns whether it ran.
    */
   vacuumIfWorthIt(): boolean {
+    this.guard();
     if (this.freeBytes() < this.vacuumMinFreeBytes) return false;
     this.db.exec("VACUUM");
     return true;
@@ -263,6 +284,7 @@ export class Db {
     action: GameAction | { type: string },
     at: number,
   ): void {
+    this.guard();
     dbTimed("append_action", dbWriteDuration, () =>
       this.insertAction(gameId, version, playerId, action, at),
     );
@@ -345,6 +367,8 @@ export class Db {
   }
 
   close(): void {
+    // a fenced process (lease lost) must not even checkpoint: that writes the database file
+    if (!attemptSync("db:guard", () => this.guard()).ok) return this.db.close();
     try {
       this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
     } catch {

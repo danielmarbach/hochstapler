@@ -6,6 +6,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { startServer } from "../../packages/server/src/server.ts";
+import { FileLease } from "../../packages/server/src/lease/file.ts";
 import { startTelemetry } from "../../packages/server/src/telemetry.ts";
 
 const port = Number(process.env["E2E_PORT"] ?? 8788);
@@ -42,6 +43,17 @@ const running = await startServer({
     powPerHour: 1e9,
   },
   ...(buildId ? { buildId } : {}),
+  // handover scenarios (E2E_FAST_LEASE): the real file lease with short timings, so a handover takes about a second;
+  // the instance that handed over does not compete again within the scenario
+  ...(process.env["E2E_FAST_LEASE"] === "1"
+    ? {
+        writerLease: new FileLease(dataDir, {
+          timing: { durationMs: 3000, renewIntervalMs: 250, safetyMarginMs: 1000 },
+          pollMs: 50,
+        }),
+        leaseRejoinDelayMs: 600_000,
+      }
+    : {}),
 });
 console.log(
   `[e2e] Hochstapler (test mode) on http://127.0.0.1:${running.port}, data in ${dataDir}`,

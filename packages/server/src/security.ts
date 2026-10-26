@@ -184,6 +184,7 @@ const GAME = "/api/games/[A-Za-z0-9]{1,32}";
 /** every public route and the methods it accepts (HEAD is implied by GET) */
 const API_ROUTES: readonly { re: RegExp; template: string; methods: readonly string[] }[] = [
   { re: /^\/api\/themes$/, template: "/api/themes", methods: ["GET"] },
+  { re: /^\/api\/ready$/, template: "/api/ready", methods: ["GET"] },
   { re: /^\/api\/games$/, template: "/api/games", methods: ["POST"] },
   { re: /^\/api\/pow\/challenge$/, template: "/api/pow/challenge", methods: ["POST"] },
   { re: new RegExp(`^${GAME}$`), template: "/api/games/:id", methods: ["GET"] },

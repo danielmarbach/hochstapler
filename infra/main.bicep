@@ -1,4 +1,4 @@
-// Hochstapler on Azure Container Apps (docs/DESIGN.md #50-#52).
+// Hochstapler on Azure Container Apps (docs/DESIGN.md #50-#52, writer lease and blue/green rollout: #89).
 // Scope: the existing resource group (az deployment group create -g Hochstapler). Names derive from the group id,
 // so every re-run addresses the same resources (idempotent). No secret is ever an output; the storage / workspace keys
 // are read with listKeys() at deployment time and only travel inside this deployment.
@@ -56,6 +56,9 @@ param customDomain string = ''
 @description('Custom domain stage (chicken-and-egg: the managed certificate can only be issued for a hostname that is already on the app, and the binding needs the certificate). hostname = hostname on the app without TLS binding; certificate = like hostname plus the managed certificate; bind = hostname bound with SniEnabled and the existing certificate. scripts/azure-deploy.sh drives the stages; an unchanged stage is a no-op (no new revision, no new certificate).')
 param customDomainStage string = 'hostname'
 
+@description('Blue/green rollout (DESIGN #89): name of the running revision that keeps 100 % of the traffic while a new revision starts with 0 % and takes the writer lease over; scripts/azure-deploy.sh shifts the traffic afterwards. Empty = the latest revision gets all traffic.')
+param trafficRevision string = ''
+
 var suffix = uniqueString(resourceGroup().id)
 var storageName = take('st${baseName}${suffix}', 24) // 3-24 chars, lowercase letters/digits
 var registryName = 'cr${baseName}${suffix}' // 5-50 chars, alphanumeric
@@ -63,6 +66,8 @@ var shareName = 'data'
 var envStorageName = 'hochstapler-data'
 var port = 8787
 var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d' // built-in "AcrPull"
+var blobContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // built-in "Storage Blob Data Contributor"
+var leaseContainerName = 'leases'
 
 // ---------- logs: 30 days, small daily cap ----------
 resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -125,6 +130,22 @@ resource share 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-05-01
   }
 }
 
+// ---------- writer lease (DESIGN #89): one blob in a private container, leased by the app's managed identity ----------
+// Only the lease holder opens the SQLite file. Access is Entra ID (managed identity token) with a role scoped to this one
+// container: no account key, no SAS. The account is StorageV2 (above), so blob and file services share it.
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: storage
+  name: 'default'
+}
+
+resource leaseContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobService
+  name: leaseContainerName
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
 // ---------- registry (Basic, no admin user) + pull identity ----------
 resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: registryName
@@ -148,6 +169,17 @@ resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     principalId: pullIdentity.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
+  }
+}
+
+// The app's (only) user-assigned identity may read/write blobs of the lease container, nothing else in the account.
+resource leaseRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: leaseContainer
+  name: guid(leaseContainer.id, pullIdentity.id, blobContributorRoleId)
+  properties: {
+    principalId: pullIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', blobContributorRoleId)
   }
 }
 
@@ -201,6 +233,12 @@ var appEnv = concat(
     { name: 'TRUST_PROXY_HOPS', value: '1' }
     // SMB: no WAL (needs shared memory), rollback journal instead (DESIGN #51)
     { name: 'SQLITE_JOURNAL_MODE', value: 'delete' }
+    // writer lease (DESIGN #89): only the holder of the blob lease opens the database; token from the managed identity
+    // (Container Apps sets IDENTITY_ENDPOINT / IDENTITY_HEADER; AZURE_CLIENT_ID selects the user-assigned identity)
+    { name: 'WRITER_LEASE', value: 'azure-blob' }
+    { name: 'WRITER_LEASE_ACCOUNT_URL', value: storage.properties.primaryEndpoints.blob }
+    { name: 'WRITER_LEASE_CONTAINER', value: leaseContainerName }
+    { name: 'AZURE_CLIENT_ID', value: pullIdentity.properties.clientId }
   ],
   empty(allowedOrigins) ? [] : [{ name: 'ALLOWED_ORIGINS', value: allowedOrigins }],
   // OTEL_EXPORTER_OTLP_ENDPOINT / _PROTOCOL (grpc) / OTEL_RESOURCE_ATTRIBUTES are injected by the managed agent. The rest
@@ -226,7 +264,8 @@ var customDomains = !hasDomain ? null : [
     : { name: customDomain, bindingType: 'Disabled' }
 ]
 
-var probePath = '/api/themes' // same endpoint as the Dockerfile HEALTHCHECK
+var probePath = '/api/themes' // liveness/startup: same endpoint as the Dockerfile HEALTHCHECK, answers in standby too
+var readyPath = '/api/ready' // readiness: 200 only while this replica holds the writer lease and serves (DESIGN #89)
 
 resource app 'Microsoft.App/containerApps@2025-01-01' = if (deployApp) {
   name: baseName
@@ -236,15 +275,15 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = if (deployApp) {
     type: 'UserAssigned'
     userAssignedIdentities: { '${pullIdentity.id}': {} }
   }
-  dependsOn: [acrPull]
+  dependsOn: [acrPull, leaseRole]
   properties: {
     managedEnvironmentId: environment.id
     workloadProfileName: null
     configuration: {
-      // Multiple (not Single!): in Single mode the platform re-activates the previous revision as a fallback while the
-      // new one rolls out, so two server processes would share the SQLite file (observed, #52). In Multiple mode nothing
-      // is started or stopped behind our back: scripts/azure-deploy.sh deactivates the old revision BEFORE creating the
-      // new one and the new one gets 100 % of the traffic. Never deploy this template without that script.
+      // Multiple (not Single!): in Single mode the platform starts and stops revisions on its own (#52). Two revisions may
+      // run at the same time now, but only the holder of the writer lease opens the SQLite file (#89): the new revision
+      // starts with 0 % traffic (trafficRevision), takes the lease over, then scripts/azure-deploy.sh shifts the traffic
+      // and deactivates the old one. Never deploy this template without that script.
       activeRevisionsMode: 'Multiple'
       maxInactiveRevisions: 3
       ingress: {
@@ -252,7 +291,9 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = if (deployApp) {
         targetPort: port
         transport: 'auto' // HTTP/1.1 + WebSocket upgrade
         allowInsecure: false // http -> https redirect at the edge
-        traffic: [{ latestRevision: true, weight: 100 }]
+        traffic: empty(trafficRevision)
+          ? [{ latestRevision: true, weight: 100 }]
+          : [{ revisionName: trafficRevision, weight: 100 }]
         customDomains: customDomains // app-level ingress config, creates no revision
       }
       registries: [{ server: registry.properties.loginServer, identity: pullIdentity.id }]
@@ -283,7 +324,7 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = if (deployApp) {
             }
             {
               type: 'Readiness'
-              httpGet: { path: probePath, port: port }
+              httpGet: { path: readyPath, port: port }
               periodSeconds: 10
               failureThreshold: 3
               timeoutSeconds: 5
@@ -291,7 +332,7 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = if (deployApp) {
           ]
         }
       ]
-      // stateful + authoritative: exactly one replica, never scaled
+      // stateful + authoritative: exactly one replica per revision, never scaled (the lease decides who writes)
       scale: { minReplicas: 1, maxReplicas: 1 }
       volumes: [
         {

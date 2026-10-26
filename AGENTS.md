@@ -69,12 +69,17 @@ Principle: **deny by default, allow only what the game really needs.** Every loo
 - **Before every deploy run `npm run security`** (audit, lockfile-lint, gitleaks, osv-scanner, hadolint, trivy, caddy validate,
   semgrep; needs network, Docker steps skip without Docker). `npm run lint` carries the offline security lint.
 
-## Azure Container Apps (DESIGN #50-#52)
+## Azure Container Apps (DESIGN #50-#52, writer lease #89)
 
 - `infra/main.bicep` + `scripts/azure-deploy.sh` (`npm run deploy:azure`) are the only way to deploy; `az bicep build` must stay warning-free.
-- **Never run two server instances on the same Azure Files DB file at the same time** (no `scripts/azure-deploy.sh` bypass, no
-  second replica, no Single revision mode, no parallel revisions). The share is mounted with `nobrl` (no SMB locks) and
-  `SQLITE_JOURNAL_MODE=delete`; two writers corrupt the database. The script deactivates the old revision before the new one starts.
+- **Never open the database without holding the writer lease; never bypass the deploy script.** Two revisions may run during
+  a rollout (blue/green), but only the lease holder (`packages/server/src/lease/`, Azure Blob lease) opens the SQLite file.
+  The share is mounted with `nobrl` (no SMB locks) and `SQLITE_JOURNAL_MODE=delete`; two writers corrupt the database, and
+  there the lease is the only guard. Every DB write goes through the lease fence (`Db` `writeGuard`); no write after a failed
+  renewal or past (last renewal + duration - safety margin). No Single revision mode, no second replica per revision.
+- The `file` lease is for local disks only (dev, LAN compose, e2e), never for an SMB/NFS share; `WRITER_LEASE=none` only for
+  one in-process instance (tests). New lease backends implement `WriterLease` and keep provider code in their own module.
+- Readiness (`/api/ready`) = holds the lease; liveness/startup stay on `/api/themes` and must work in standby.
 - Exactly 1 replica (min=max=1), ingress `allowInsecure: false`, never set `POLY_TEST_MODE`, no secrets in outputs or script output,
   ACR admin user stays off (pull via managed identity).
 - Custom domain (DESIGN #53) is optional config (`AZ_CUSTOM_DOMAIN`, never in the repo); stages `hostname` -> `certificate` -> `bind` live in the

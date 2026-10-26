@@ -16,6 +16,9 @@ export default defineConfig({
       MAX_RUNNING_GAMES: OFF,
       MAX_OPEN_LOBBIES: OFF,
       WS_MAX_PER_IP: OFF,
+      // one in-process instance per test server; the lease providers have their own tests (lease-*.test.ts,
+      // handover.test.ts passes the file lease explicitly)
+      WRITER_LEASE: "none",
     },
   },
 });

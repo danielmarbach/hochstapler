@@ -155,6 +155,10 @@ export class GameRoom {
   private botFailures = 0;
   private stalledDeadline: number | null = null;
   private closed = false;
+  /** disposed (shutdown, handover, lost lease): queued and new work is refused */
+  get isClosed(): boolean {
+    return this.closed;
+  }
   /** the game was deleted by the retention sweep: nothing may write it back */
   private expired = false;
   private lastHelloTouch = 0;
@@ -1014,11 +1018,25 @@ export class Hub {
     return ids.length;
   }
 
-  async shutdown(): Promise<void> {
+  private stopTimers(): void {
     if (this.sweepTimer) clearInterval(this.sweepTimer);
     this.sweepTimer = null;
     if (this.retentionTimer) clearInterval(this.retentionTimer);
     this.retentionTimer = null;
+  }
+
+  /**
+   * The writer lease is lost (docs/DESIGN.md #89): stop every timer and refuse all work at once, persist
+   * NOTHING (the database may belong to another process by now). Sockets stay; the server closes them.
+   */
+  abandon(): void {
+    this.stopTimers();
+    for (const r of this.rooms.values()) r.dispose();
+    this.rooms.clear();
+  }
+
+  async shutdown(): Promise<void> {
+    this.stopTimers();
     for (const r of this.rooms.values()) r.dispose();
     await Promise.all([...this.rooms.values()].map((r) => r.idle()));
     for (const r of this.rooms.values()) r.persist();
