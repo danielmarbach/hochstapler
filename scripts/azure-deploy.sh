@@ -28,6 +28,13 @@
 # One-time migration: a running revision WITHOUT WRITER_LEASE=azure-blob does not know the lease, so it is stopped
 # first (the old behaviour) before the new revision starts.
 #
+# No storage keys (DESIGN #92): the share is mounted with the environment's managed identity (storage definition
+# hochstapler-data-mi) and shared-key access is off. Two stages, chosen automatically: while an ACTIVE revision still
+# mounts through the old key-based definition hochstapler-data, every deployment keeps shared-key access on (stage 1:
+# the new revision mounts with the identity, the old one keeps working until the handover); the next run, with no key
+# mount left, turns shared-key access off and removes the old definition (stage 2). AZ_ALLOW_SHARED_KEY=1 keeps the key
+# on (rollback lever, see README).
+#
 # bash 3.2 compatible (macOS): no associative arrays, no mapfile.
 set -euo pipefail
 
@@ -41,7 +48,7 @@ for arg in "$@"; do
     --infra-only) INFRA_ONLY=1 ;;
     --yes | -y) ASSUME_YES=1 ;;
     -h | --help)
-      sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,38p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -72,6 +79,10 @@ TRAFFIC_REVISION="" # blue/green: the running revision keeps all traffic while t
 HANDOVER_TIMEOUT_SEC="${HANDOVER_TIMEOUT_SEC:-240}"
 STANDBY_TIMEOUT_SEC="${STANDBY_TIMEOUT_SEC:-300}"
 ROLLBACK_WAIT_SEC="${ROLLBACK_WAIT_SEC:-60}"
+MI_STORAGE="hochstapler-data-mi"   # environment storage definition with managed-identity auth (infra/main.bicep)
+LEGACY_STORAGE="hochstapler-data" # key-based definition of earlier versions, removed in stage 2 (DESIGN #92)
+SHARED_KEY="false"                # allowSharedKeyAccess handed to Bicep
+SHARED_KEY_STAGE=""               # '' = no migration, 'stage1' = an active revision still mounts with the key
 
 log() { printf '==> %s\n' "$*"; }
 die() {
@@ -131,9 +142,48 @@ deploy_bicep() { # deploy_bicep <deployApp true|false> [image]
     ${HOCHSTAPLER_DATA_DIR:+dataDir="$HOCHSTAPLER_DATA_DIR"} \
     ${DOMAIN:+customDomain="$DOMAIN" customDomainStage="$DOMAIN_STAGE"} \
     ${TRAFFIC_REVISION:+trafficRevision="$TRAFFIC_REVISION"} \
+    allowSharedKeyAccess="$SHARED_KEY" \
     -o none
 }
 app_exists() { az containerapp show -g "$RESOURCE_GROUP" -n "$APP_NAME" --only-show-errors > /dev/null 2>&1; }
+
+# ---------- 0. shared-key removal stage (DESIGN #92) ----------
+# Fail closed: any active revision whose Azure Files volume is not the managed-identity definition (including an unknown
+# answer) may still mount with the account key, so the key stays allowed in this run.
+resolve_shared_key() {
+  local revs rev mount
+  if [ "${AZ_ALLOW_SHARED_KEY:-}" = "1" ]; then
+    SHARED_KEY="true"
+    echo "WARNING: AZ_ALLOW_SHARED_KEY=1: shared-key access to the storage account stays ON (rollback lever)." >&2
+    return 0
+  fi
+  app_exists || return 0
+  if ! revs="$(azq containerapp revision list -g "$RESOURCE_GROUP" -n "$APP_NAME" --query "[?properties.active].name" -o tsv)"; then
+    SHARED_KEY="true"
+    SHARED_KEY_STAGE="stage1"
+    log "shared-key removal: stage 1 (could not list the active revisions): shared-key access stays on in this run"
+    return 0
+  fi
+  for rev in $revs; do
+    mount="$(azq containerapp revision show -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$rev" \
+      --query "properties.template.volumes[?storageType=='AzureFile'].storageName | [0]" -o tsv 2> /dev/null || true)"
+    if [ "$mount" != "$MI_STORAGE" ]; then
+      SHARED_KEY="true"
+      SHARED_KEY_STAGE="stage1"
+      log "shared-key removal: stage 1 (revision $rev mounts the share through '${mount:-unknown}', not $MI_STORAGE): shared-key access stays on in this run"
+      return 0
+    fi
+  done
+}
+resolve_shared_key
+remove_legacy_storage() { # stage 2: nothing mounts with the key any more and shared-key access is off
+  [ "$SHARED_KEY" = "false" ] || return 0
+  azq containerapp env storage list -g "$RESOURCE_GROUP" -n "$ENV_NAME" --query "[].name" -o tsv 2> /dev/null \
+    | grep -qx "$LEGACY_STORAGE" || return 0
+  log "shared-key removal: stage 2, removing the old key-based storage definition $LEGACY_STORAGE"
+  azq containerapp env storage remove -g "$RESOURCE_GROUP" -n "$ENV_NAME" --storage-name "$LEGACY_STORAGE" --yes > /dev/null \
+    || echo "WARNING: could not remove $LEGACY_STORAGE (still referenced by an inactive revision?); its key no longer works. Remove it later: az containerapp env storage remove -g $RESOURCE_GROUP -n $ENV_NAME --storage-name $LEGACY_STORAGE --yes" >&2
+}
 
 # ---------- 1. platform: registry, storage, environment, identity (no app yet) ----------
 log "Rolling out infrastructure (registry, storage, environment, logs)"
@@ -441,6 +491,11 @@ if [ -n "$DOMAIN" ]; then
   else
     echo "WARNING: Certificate for $DOMAIN is not ready (status '${cstate:-unknown}'); run again later." >&2
   fi
+fi
+
+remove_legacy_storage
+if [ "$SHARED_KEY_STAGE" = "stage1" ]; then
+  log "shared-key removal: stage 1 done, the app mounts the share with the managed identity. Check it (README), then run the script again (e.g. --skip-build) to turn shared-key access off (stage 2)."
 fi
 
 log "Done. Image: $IMAGE"

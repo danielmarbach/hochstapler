@@ -174,12 +174,12 @@ changes (new endpoints, headers, tokens): [AGENTS.md](AGENTS.md).
   Client addresses are only in-memory keys, never logged or exported.
 - **Game ids are spectator links** (#62): anyone who knows a game id can watch (not act or chat). Telemetry only carries a
   salted hash of it.
-- **Azure storage keys** (#63): Container Apps on the Consumption plan mounts Azure Files only with the account key, so
-  shared-key access and public network access stay on. Rotate the key occasionally:
-  `az storage account keys renew --account-name <storage account> --resource-group <rg> --key-name key1`, then
-  `npm run deploy:azure -- --infra-only --yes`.
-- **Log Analytics / Application Insights** (#64) keep key-based auth (the Container Apps integration needs it); junk
-  telemetry is capped by the daily cap.
+- **Azure storage** (#63, #92): no account keys any more: the share is mounted with the environment's managed identity
+  and shared-key access is off (Entra ID only). Public network access stays on (accepted residual risk: only Entra tokens with
+  a data role get in; a VNet would mean recreating the environment, domain and certificate).
+- **Log Analytics / Application Insights** (#64, #92): the environment sends its logs through a diagnostic setting (no
+  workspace key); Application Insights keeps key-based ingestion for the OpenTelemetry agent; junk telemetry is capped by the
+  daily cap.
 - **Runtime hardening on Azure** (#65): `tsx` compiles at start and Container Apps has no read-only root FS / `cap_drop`
   (the compose files have both).
 - **Player tokens in `localStorage`** (#66): mitigated by the strict CSP, no DOM sinks and the fragment-only resume link.
@@ -273,7 +273,7 @@ docker inspect --format '{{.State.Health.Status}}' $(docker compose ps -q hochst
 ## Azure Container Apps
 
 Hosting on Azure with the default HTTPS domain (`https://hochstapler.<env>.switzerlandnorth.azurecontainerapps.io`), entirely in
-Bicep (`infra/main.bicep`). Decisions: #50 to #52 and #89 in [docs/DESIGN.md](docs/DESIGN.md).
+Bicep (`infra/main.bicep`). Decisions: #50 to #52, #89 and #92 (no storage keys) in [docs/DESIGN.md](docs/DESIGN.md).
 
 **Prerequisites:** Azure CLI (`az login`), access to the subscription and the existing resource group `Hochstapler`
 (it is not created). Copy `.env.azure.example` to `.env.azure` once (listed in `.gitignore`) and enter the
@@ -315,9 +315,29 @@ fails with "rollout failed, previous revision kept"; otherwise it falls back to 
 `handover: fallback`. A running revision from before the writer lease (#89) is stopped first (it does not know the lease).
 So **never deploy the Bicep without the script**, and never open the database without holding the lease.
 
+**No storage keys (DESIGN #92):** the Container Apps environment mounts the share with its managed identity
+(`id-hochstapler-pull`, the same one the app uses for the registry and the lease; role "Storage File Data SMB MI Admin" on the
+storage account, SMB OAuth + Kerberos; this mount mode is a **preview** of Container Apps), and the storage account has
+**shared-key access off**: there is no account key or SAS that works. The switch from the old key-based mount runs in two
+stages, chosen by the script itself:
+
+1. **Stage 1** (first run after the change): an active revision still mounts through the old key-based storage definition
+   `hochstapler-data`, so the script keeps shared-key access on. The new revision mounts `hochstapler-data-mi` with the
+   identity and takes over with the normal blue/green handover. The script ends with "shared-key removal: stage 1 done".
+   If the new revision cannot mount the share (e.g. the role assignment has not propagated yet, which can take up to about
+   10 minutes), it never comes up in standby, the script deactivates it and the old revision keeps serving: wait and run again.
+2. **Stage 2** (the next run, e.g. `npm run deploy:azure -- --skip-build`): nothing active mounts with the key any more, so
+   the script deploys with shared-key access off (and SMB NTLMv2 off, Kerberos only) and removes the old storage definition.
+
+Rollback: `AZ_ALLOW_SHARED_KEY=1 npm run deploy:azure -- --skip-build` turns shared-key access back on (for a one-off
+emergency only; do not put it in `.env.azure`). An old revision from before the change mounts `hochstapler-data` with the key
+and can only be reactivated while that definition exists and the key is allowed.
+
 **What gets created** (everything in the resource group, names from `uniqueString`): Container Registry Basic (no admin user,
 pull via managed identity), Storage Account Standard LRS with Azure Files share `data` (mount `/data`, `nobrl`,
-`uid/gid 1000`, soft delete 14 days), Log Analytics (30 days, daily cap 0.1 GB), Container Apps Environment, the app
+`uid/gid 1000`, soft delete 14 days; shared-key access off, mounted with the environment's managed identity), Log Analytics
+(30 days, daily cap 0.1 GB; the environment's console and system logs arrive through a diagnostic setting, not with the
+workspace key), Container Apps Environment (with the user-assigned identity), the app
 (1 replica, 0.5 vCPU / 1 GiB, startup/liveness probes on `/api/themes`, readiness on `/api/live` (both answer in standby),
 `terminationGracePeriodSeconds: 20`), a private blob container `leases` for the writer lease with the role "Storage Blob Data
 Contributor" for the app's managed identity on that container only (no account key, no SAS). The app runs with
@@ -354,7 +374,7 @@ az containerapp logs show -g Hochstapler -n hochstapler --type console --tail 10
 az containerapp logs show -g Hochstapler -n hochstapler --type system --tail 100           # platform events
 az containerapp revision list -g Hochstapler -n hochstapler -o table                       # revisions, health
 az monitor log-analytics query -w <workspace-customerId> --analytics-query \
-  "ContainerAppConsoleLogs_CL | where TimeGenerated > ago(1h) | project TimeGenerated, RevisionName_s, Log_s | order by TimeGenerated desc | take 100"
+  "ContainerAppConsoleLogs | where TimeGenerated > ago(1h) | project TimeGenerated, RevisionName, Log | order by TimeGenerated desc | take 100"
 ```
 
 **Backups and restore:** There are two safety nets. (1) On a schema update the app creates a `VACUUM INTO` backup in
@@ -364,17 +384,18 @@ can be recovered.
 ```bash
 ACC=$(az storage account list -g Hochstapler --query "[0].name" -o tsv)
 # restore a deleted share (soft delete)
-az storage share list --account-name $ACC --include-deleted --auth-mode login -o table
+az storage share-rm list -g Hochstapler --storage-account $ACC --include-deleted -o table
 az storage share-rm restore -g Hochstapler --storage-account $ACC --name data --deleted-version <version>   # version from the list
 # restore a backup file: stop the app (deactivate revision), replace the file in the share, activate revision
 az containerapp revision deactivate -g Hochstapler -n hochstapler --revision <revision>
-az storage file download --account-name $ACC --share-name data --path backups/<file> --dest ./games.sqlite --auth-mode login
-az storage file upload   --account-name $ACC --share-name data --source ./games.sqlite --path games.sqlite --auth-mode login
+az storage file download --account-name $ACC --share-name data --path backups/<file> --dest ./games.sqlite --auth-mode login --enable-file-backup-request-intent
+az storage file upload   --account-name $ACC --share-name data --source ./games.sqlite --path games.sqlite --auth-mode login --enable-file-backup-request-intent
 az containerapp revision activate -g Hochstapler -n hochstapler --revision <revision>
 ```
 
-(`--auth-mode login` needs the role "Storage File Data Privileged Contributor" and `--enable-file-backup-request-intent`;
-alternatively in the Azure portal under the storage account -> file shares -> `data`.) Back up the old file before
+(Shared-key access is off (#92), so only Entra ID works: `--auth-mode login` needs the role "Storage File Data Privileged
+Contributor" for your account and `--enable-file-backup-request-intent`; the portal's file browser needs the same role and
+"Microsoft Entra user account" as authentication method. Azure Backup for Azure Files is not used: it needs shared-key access.) Back up the old file before
 restoring; deactivate **every** active revision first (a standby revision would take the lease over and open the file).
 
 **Cleaning up:** The resource group stays; only the created resources are deleted:

@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Fake Azure CLI for deploy-script tests (test/deploy-script.test.ts). Never talks to Azure.
-# State in $FAKE_AZ_STATE: revisions (one per line: name active image writer_lease), calls.log.
+# State in $FAKE_AZ_STATE: revisions (one per line: name active image writer_lease [storage_name]), calls.log,
+# envstorages (storage definitions of the environment, one name per line).
 # FAKE_NEW_LEASE: WRITER_LEASE of revisions created by a deployment (default azure-blob).
+# New revisions mount the managed-identity storage definition hochstapler-data-mi (DESIGN #92).
 set -euo pipefail
 S="$FAKE_AZ_STATE"
 REVS="$S/revisions"
-touch "$REVS"
+touch "$REVS" "$S/envstorages"
 echo "az $*" >> "$S/calls.log"
 args=" $* "
 arg_after() { # value after option $1
@@ -35,19 +37,24 @@ case "$args" in
     if [ "$deploy_app" = "true" ]; then
       if [ ! -s "$REVS" ] || [ "$(field "$(latest)" 3)" != "$image" ]; then
         n=$(($(wc -l < "$REVS") + 1))
-        echo "app--r$n true $image ${FAKE_NEW_LEASE-azure-blob}" >> "$REVS"
+        echo "app--r$n true $image ${FAKE_NEW_LEASE-azure-blob} hochstapler-data-mi" >> "$REVS"
       fi
     fi ;;
   *" acr list "*) echo crhochstaplerfake ;;
   *" acr show "*) echo crfake.azurecr.io ;;
   *" acr repository show-tags "*) echo "$DEPLOY_TAG" ;;
   *" containerapp env list "*) echo cae-fake ;;
+  *" containerapp env storage list "*) cat "$S/envstorages" ;;
+  *" containerapp env storage remove "*)
+    grep -vx "$(opt --storage-name "$@")" "$S/envstorages" > "$S/envstorages.tmp" || true
+    mv "$S/envstorages.tmp" "$S/envstorages" ;;
   *" containerapp revision list "*) awk '$2 == "true" { print $1 }' "$REVS" ;;
   *" containerapp revision show "*)
     rev="$(opt --revision "$@")"
     case "$args" in
       *"properties.active"*) field "$rev" 2 ;;
       *"WRITER_LEASE"*) field "$rev" 4 ;;
+      *"storageName"*) field "$rev" 5 ;;
       *"properties.fqdn"*) echo "$rev.fake.test" ;;
       *"healthState"*) echo Healthy ;;
       *"provisioningState"*) echo Provisioned ;;

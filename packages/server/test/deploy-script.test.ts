@@ -183,6 +183,68 @@ describe("scripts/azure-deploy.sh (fake az)", () => {
     expect(r.revisions).toEqual([`app--r1 true ${OLD_IMAGE} azure-blob`]);
   });
 
+  // DESIGN #92: the share is mounted with the environment's managed identity; shared-key access goes off only once no
+  // active revision still mounts the share through the old key-based storage definition.
+  const KEY_MOUNT = "hochstapler-data";
+  const MI_MOUNT = "hochstapler-data-mi";
+  const deployments = (calls: string[]) => calls.filter((c) => /deployment group create/.test(c));
+
+  it("key removal stage 1: while an active revision mounts with the key, every deployment keeps shared-key access on", () => {
+    writeFileSync(join(dir, "state/envstorages"), `${KEY_MOUNT}\n`);
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob ${KEY_MOUNT}`], ["--skip-build"]);
+    expect(r.err).not.toMatch(/ERROR/);
+    expect(r.status).toBe(0);
+    const deploys = deployments(r.calls);
+    expect(deploys.length).toBeGreaterThan(1);
+    for (const d of deploys) expect(d).toContain("allowSharedKeyAccess=true");
+    // blue/green as always: the new revision (managed-identity mount) takes over, then the old one stops
+    expect(r.revisions.filter((l) => l.includes(" true "))).toEqual([
+      expect.stringMatching(new RegExp(`^app--r2 true .* ${MI_MOUNT}$`)),
+    ]);
+    // the old storage definition stays until stage 2 (the old revision may still be reactivated)
+    expect(index(r.calls, /containerapp env storage remove/)).toBe(-1);
+    expect(r.out).toContain("shared-key removal: stage 1");
+    expect(r.out).toMatch(/run the script again/i);
+  });
+
+  it("key removal stage 2: no active key mount -> shared-key access off, then the old storage definition is removed", () => {
+    writeFileSync(join(dir, "state/envstorages"), `${KEY_MOUNT}\n${MI_MOUNT}\n`);
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob ${MI_MOUNT}`], ["--skip-build"]);
+    expect(r.err).not.toMatch(/ERROR/);
+    expect(r.status).toBe(0);
+    const deploys = deployments(r.calls);
+    expect(deploys.length).toBeGreaterThan(0);
+    for (const d of deploys) expect(d).toContain("allowSharedKeyAccess=false");
+    const remove = index(
+      r.calls,
+      new RegExp(`containerapp env storage remove .*--storage-name ${KEY_MOUNT}( |$)`),
+    );
+    expect(remove).toBeGreaterThan(index(r.calls, /deployApp=true/));
+    expect(readFileSync(join(dir, "state/envstorages"), "utf8").trim()).toBe(MI_MOUNT);
+  });
+
+  it("removes nothing when the old storage definition is already gone", () => {
+    writeFileSync(join(dir, "state/envstorages"), `${MI_MOUNT}\n`);
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob ${MI_MOUNT}`], ["--skip-build"]);
+    expect(r.status).toBe(0);
+    expect(index(r.calls, /containerapp env storage remove/)).toBe(-1);
+  });
+
+  it("AZ_ALLOW_SHARED_KEY=1 keeps shared-key access on (rollback lever) and removes nothing", () => {
+    writeFileSync(join(dir, "state/envstorages"), `${KEY_MOUNT}\n${MI_MOUNT}\n`);
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob ${MI_MOUNT}`], ["--skip-build"], {
+      AZ_ALLOW_SHARED_KEY: "1",
+    });
+    expect(r.status).toBe(0);
+    for (const d of deployments(r.calls)) expect(d).toContain("allowSharedKeyAccess=true");
+    expect(index(r.calls, /containerapp env storage remove/)).toBe(-1);
+  });
+
+  it("never handles a storage key or connection string", () => {
+    const text = readFileSync(SCRIPT, "utf8");
+    expect(text).not.toMatch(/account-key|connection-string|keys list|listKeys|--sas-token/);
+  });
+
   it("runs with errexit, nounset and pipefail and stays valid bash", () => {
     const text = readFileSync(SCRIPT, "utf8");
     expect(text).toMatch(/^set -euo pipefail$/m);

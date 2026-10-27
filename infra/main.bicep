@@ -1,7 +1,8 @@
 // Hochstapler on Azure Container Apps (docs/DESIGN.md #50-#52, writer lease and blue/green rollout: #89).
 // Scope: the existing resource group (az deployment group create -g Hochstapler). Names derive from the group id,
-// so every re-run addresses the same resources (idempotent). No secret is ever an output; the storage / workspace keys
-// are read with listKeys() at deployment time and only travel inside this deployment.
+// so every re-run addresses the same resources (idempotent). No key is read or stored anywhere (DESIGN #92): the share is
+// mounted with the environment's managed identity, the writer lease uses the app's, logs reach the workspace through
+// diagnostic settings. No secret is ever an output.
 targetScope = 'resourceGroup'
 
 @description('Azure region; defaults to the resource group location.')
@@ -56,6 +57,9 @@ param customDomain string = ''
 @description('Custom domain stage (chicken-and-egg: the managed certificate can only be issued for a hostname that is already on the app, and the binding needs the certificate). hostname = hostname on the app without TLS binding; certificate = like hostname plus the managed certificate; bind = hostname bound with SniEnabled and the existing certificate. scripts/azure-deploy.sh drives the stages; an unchanged stage is a no-op (no new revision, no new certificate).')
 param customDomainStage string = 'hostname'
 
+@description('Shared-key (account key) access to the storage account. false = Entra ID only (DESIGN #92). true only in the migration stage: scripts/azure-deploy.sh sets it while an active revision still mounts the share through the old key-based storage definition, or when AZ_ALLOW_SHARED_KEY=1 (rollback).')
+param allowSharedKeyAccess bool = false
+
 @description('Blue/green rollout (DESIGN #89): name of the running revision that keeps 100 % of the traffic while a new revision starts with 0 % in standby; scripts/azure-deploy.sh then shifts the traffic, and the first request makes the new revision take the writer lease over (DESIGN #91). Empty = the latest revision gets all traffic.')
 param trafficRevision string = ''
 
@@ -63,10 +67,13 @@ var suffix = uniqueString(resourceGroup().id)
 var storageName = take('st${baseName}${suffix}', 24) // 3-24 chars, lowercase letters/digits
 var registryName = 'cr${baseName}${suffix}' // 5-50 chars, alphanumeric
 var shareName = 'data'
-var envStorageName = 'hochstapler-data'
+// managed-identity mount (DESIGN #92). The key-based definition 'hochstapler-data' of earlier versions is not in this
+// template any more; scripts/azure-deploy.sh removes it once shared-key access is off.
+var envStorageName = 'hochstapler-data-mi'
 var port = 8787
 var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d' // built-in "AcrPull"
 var blobContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // built-in "Storage Blob Data Contributor"
+var smbMiAdminRoleId = 'a235d3ee-5935-4cfb-8cc5-a3303ad5995e' // built-in "Storage File Data SMB MI Admin"
 var leaseContainerName = 'leases'
 
 // ---------- logs: 30 days, small daily cap ----------
@@ -96,7 +103,7 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = if (enableTele
 }
 
 // ---------- storage: Azure Files share for the SQLite database (/data) ----------
-resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+resource storage 'Microsoft.Storage/storageAccounts@2025-06-01' = {
   name: storageName
   location: location
   sku: { name: 'Standard_LRS' }
@@ -105,22 +112,30 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
     allowBlobPublicAccess: false
-    allowSharedKeyAccess: true // Container Apps can only mount Azure Files with the account key
+    allowSharedKeyAccess: allowSharedKeyAccess // false: Entra ID only, no account key, no SAS (DESIGN #92)
     allowCrossTenantReplication: false
     publicNetworkAccess: 'Enabled'
     networkAcls: { defaultAction: 'Allow', bypass: 'AzureServices' }
+    // Managed Identity for SMB (SMBOAuth): the Container Apps environment mounts the share with an Entra token of its
+    // identity instead of the account key. 'None' = no AD DS / Entra Kerberos for user identities.
+    azureFilesIdentityBasedAuthentication: {
+      directoryServiceOptions: 'None'
+      smbOAuthSettings: { isSmbOAuthEnabled: true }
+    }
   }
 }
 
-resource fileService 'Microsoft.Storage/storageAccounts/fileServices@2023-05-01' = {
+resource fileService 'Microsoft.Storage/storageAccounts/fileServices@2025-06-01' = {
   parent: storage
   name: 'default'
   properties: {
     shareDeleteRetentionPolicy: { enabled: true, days: shareSoftDeleteDays }
+    // SMB OAuth needs Kerberos; NTLMv2 is the account-key path and stays allowed only while the key is (migration stage)
+    protocolSettings: { smb: { authenticationMethods: allowSharedKeyAccess ? 'NTLMv2;Kerberos' : 'Kerberos' } }
   }
 }
 
-resource share 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-05-01' = {
+resource share 'Microsoft.Storage/storageAccounts/fileServices/shares@2025-06-01' = {
   parent: fileService
   name: shareName
   properties: {
@@ -133,12 +148,12 @@ resource share 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-05-01
 // ---------- writer lease (DESIGN #89): one blob in a private container, leased by the app's managed identity ----------
 // Only the lease holder opens the SQLite file. Access is Entra ID (managed identity token) with a role scoped to this one
 // container: no account key, no SAS. The account is StorageV2 (above), so blob and file services share it.
-resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2025-06-01' = {
   parent: storage
   name: 'default'
 }
 
-resource leaseContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+resource leaseContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2025-06-01' = {
   parent: blobService
   name: leaseContainerName
   properties: {
@@ -183,18 +198,32 @@ resource leaseRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+// The environment carries the same identity and mounts the share with it (DESIGN #92). Storage account scope as the
+// Container Apps docs require; the role holds file data actions only, so the lease container stays untouched by it.
+resource shareMountRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: storage
+  name: guid(storage.id, pullIdentity.id, smbMiAdminRoleId)
+  properties: {
+    principalId: pullIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', smbMiAdminRoleId)
+  }
+}
+
 // ---------- environment (consumption only) ----------
 // 2026-07-01 (not 2025-01-01) because only this version and the preview ones know openTelemetryConfiguration (#56).
 resource environment 'Microsoft.App/managedEnvironments@2026-07-01' = {
   name: 'cae-${baseName}'
   location: location
+  // used for the Azure Files mount only (envStorage); image pulls and the writer lease use the app's identity
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: { '${pullIdentity.id}': {} }
+  }
   properties: {
+    // logs go to the workspace through diagnostic settings (envLogs), not with the workspace shared key (DESIGN #92)
     appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: logs.properties.customerId
-        sharedKey: logs.listKeys().primarySharedKey
-      }
+      destination: 'azure-monitor'
     }
     zoneRedundant: false
     // Managed OpenTelemetry agent: gRPC only; Application Insights accepts traces and logs, NOT metrics (docs: known limitations).
@@ -208,17 +237,37 @@ resource environment 'Microsoft.App/managedEnvironments@2026-07-01' = {
   }
 }
 
-resource envStorage 'Microsoft.App/managedEnvironments/storages@2025-01-01' = {
+// Console and system logs into the workspace (resource-specific tables ContainerAppConsoleLogs / ContainerAppSystemLogs).
+// Never ContainerAppHTTPLogs: they carry client addresses and raw URLs.
+resource envLogs 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  scope: environment
+  name: 'logs-to-workspace'
+  properties: {
+    workspaceId: logs.id
+    logAnalyticsDestinationType: 'Dedicated'
+    logs: [
+      { category: 'ContainerAppConsoleLogs', enabled: true }
+      { category: 'ContainerAppSystemLogs', enabled: true }
+    ]
+  }
+}
+
+// Managed-identity mount (DESIGN #92). PREVIEW: azureFile.identity exists only in 2026-03-02-preview (not in the GA
+// 2026-07-01); if the preview changes or goes away, see DESIGN #92 for the fallback. The identity must be on the
+// environment and hold the role above; dependsOn orders the deployment but does not wait for RBAC propagation (a mount
+// that fails because of it makes the new revision miss its standby check, the deploy script then keeps the old one).
+resource envStorage 'Microsoft.App/managedEnvironments/storages@2026-03-02-preview' = {
   parent: environment
   name: envStorageName
   properties: {
     azureFile: {
       accountName: storage.name
-      accountKey: storage.listKeys().keys[0].value
+      identity: pullIdentity.id
       shareName: share.name
       accessMode: 'ReadWrite'
     }
   }
+  dependsOn: [shareMountRole]
 }
 
 // ---------- the app ----------

@@ -85,6 +85,11 @@ Principle: **deny by default, allow only what the game really needs.** Every loo
   probes (`kube-probe/`) and `/api/ready` / `/api/live` never trigger it.
 - Exactly 1 replica (min=max=1), ingress `allowInsecure: false`, never set `POLY_TEST_MODE`, no secrets in outputs or script output,
   ACR admin user stays off (pull via managed identity).
+- **No account keys (DESIGN #92):** `allowSharedKeyAccess` stays false (only the script's migration stage or the one-off
+  `AZ_ALLOW_SHARED_KEY=1` rollback may turn it on); the share is mounted with the environment's managed identity
+  (`azureFile.identity`, preview API), never with `accountKey`; no `listKeys()`, SAS, connection strings or `--account-key`
+  anywhere (Bicep, script, docs); data-plane access is Entra ID (`--auth-mode login`) with a data role. Environment logs go
+  through diagnostic settings (console + system only, never `ContainerAppHTTPLogs`), not the workspace key.
 - Custom domain (DESIGN #53) is optional config (`AZ_CUSTOM_DOMAIN`, never in the repo); stages `hostname` -> `certificate` -> `bind` live in the
   script, and every domain step must leave exactly one active revision / replica (`assert_single_revision`).
 

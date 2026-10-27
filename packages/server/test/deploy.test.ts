@@ -246,3 +246,74 @@ describe("writer lease on Azure (DESIGN #89)", () => {
     expect(bicep).toContain("[{ latestRevision: true, weight: 100 }]");
   });
 });
+
+describe("no long-lived storage or workspace keys on Azure (DESIGN #92)", () => {
+  const bicep = read("infra/main.bicep");
+  const resource = (name: string): string => {
+    const start = bicep.indexOf(`resource ${name} `);
+    expect(start).toBeGreaterThan(-1);
+    return bicep.slice(start, bicep.indexOf("\n}\n", start));
+  };
+  it("reads no key anywhere: no listKeys(), no account key, no workspace shared key", () => {
+    expect(bicep).not.toContain("listKeys(");
+    expect(bicep).not.toMatch(/accountKey|sharedKey:|listAccountSas|listServiceSas/);
+  });
+  it("disables shared-key access by default; only the deploy script's migration stage may keep it on", () => {
+    expect(bicep).toContain("param allowSharedKeyAccess bool = false");
+    expect(resource("storage")).toContain("allowSharedKeyAccess: allowSharedKeyAccess");
+    expect(read("infra/main.bicepparam")).not.toMatch(/allowSharedKeyAccess/);
+  });
+  it("enables Managed Identity for SMB (SMBOAuth) and Kerberos; NTLMv2 (= account key) only while the key is allowed", () => {
+    expect(resource("storage")).toMatch(
+      /azureFilesIdentityBasedAuthentication: \{\s*directoryServiceOptions: 'None'\s*smbOAuthSettings: \{ isSmbOAuthEnabled: true \}/,
+    );
+    expect(resource("fileService")).toContain(
+      "protocolSettings: { smb: { authenticationMethods: allowSharedKeyAccess ? 'NTLMv2;Kerberos' : 'Kerberos' } }",
+    );
+  });
+  it("puts the app's user-assigned identity on the environment", () => {
+    expect(resource("environment")).toMatch(
+      /identity: \{\s*type: 'UserAssigned'\s*userAssignedIdentities: \{ '\$\{pullIdentity\.id\}': \{\} \}\s*\}/,
+    );
+  });
+  it("grants Storage File Data SMB MI Admin to that identity at storage account scope", () => {
+    expect(bicep).toContain("var smbMiAdminRoleId = 'a235d3ee-5935-4cfb-8cc5-a3303ad5995e'");
+    const role = resource("shareMountRole");
+    expect(role).toMatch(
+      /^resource shareMountRole 'Microsoft\.Authorization\/roleAssignments@[^']+' = \{\s*scope: storage\s/,
+    );
+    expect(role).toContain("name: guid(storage.id, pullIdentity.id, smbMiAdminRoleId)");
+    expect(role).toContain("principalId: pullIdentity.properties.principalId");
+    expect(role).toContain("principalType: 'ServicePrincipal'");
+    expect(role).toContain(
+      "roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', smbMiAdminRoleId)",
+    );
+  });
+  it("mounts the share with managed-identity auth (preview API) under a new storage name, after the role exists", () => {
+    const storage = resource("envStorage");
+    expect(storage).toMatch(
+      /^resource envStorage 'Microsoft\.App\/managedEnvironments\/storages@2026-03-02-preview' = \{/,
+    );
+    expect(storage).toMatch(
+      /azureFile: \{\s*accountName: storage\.name\s*identity: pullIdentity\.id\s*shareName: share\.name\s*accessMode: 'ReadWrite'\s*\}/,
+    );
+    expect(storage).toContain("dependsOn: [shareMountRole]");
+    expect(bicep).toContain("var envStorageName = 'hochstapler-data-mi'");
+    expect(resource("app")).toContain("storageName: envStorage.name");
+  });
+  it("sends the environment logs to Log Analytics through diagnostic settings (console + system, never HTTP logs)", () => {
+    expect(resource("environment")).toMatch(
+      /appLogsConfiguration: \{\s*destination: 'azure-monitor'\s*\}/,
+    );
+    const diag = resource("envLogs");
+    expect(diag).toMatch(
+      /^resource envLogs 'Microsoft\.Insights\/diagnosticSettings@[^']+' = \{\s*scope: environment\s/,
+    );
+    expect(diag).toContain("workspaceId: logs.id");
+    expect(diag).toContain("logAnalyticsDestinationType: 'Dedicated'");
+    expect(diag).toContain("{ category: 'ContainerAppConsoleLogs', enabled: true }");
+    expect(diag).toContain("{ category: 'ContainerAppSystemLogs', enabled: true }");
+    // HTTP logs would carry client addresses and raw URLs (AGENTS.md telemetry rule)
+    expect(diag).not.toMatch(/ContainerAppHTTPLogs|allLogs|categoryGroup/);
+  });
+});
