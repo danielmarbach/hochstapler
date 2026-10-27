@@ -199,7 +199,8 @@ describe("5. trades between humans and bots", () => {
     });
     new AutoPlayer(t.a, t.host.playerId, 3, { extraRate: 0 });
     // B never acts: after its first missed turn it is away
-    await t.a.untilState((s) => s.players[1]!.controller === "away", 6000);
+    // generous: under a full parallel test run the 1 s turn timer fires late
+    await t.a.untilState((s) => s.players[1]!.controller === "away", 12_000);
     t.a.act({ type: "propose-trade", offer: cashTrade(t.friend.playerId, 5, 0) });
     const s = await t.a.untilState(
       (x) => x.trades.length > 0 && x.trades.every((y) => y.status !== "pending"),
@@ -207,7 +208,7 @@ describe("5. trades between humans and bots", () => {
     );
     expect(["accepted", "rejected"]).toContain(s.trades.at(-1)!.status);
     await Promise.all([t.a.close(), t.b.close()]);
-  }, 15_000);
+  }, 20_000);
 
   it("a trade proposed to a bot gets answered", async () => {
     ts = await startTestServer();
