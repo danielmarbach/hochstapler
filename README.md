@@ -1,9 +1,27 @@
 # Hochstapler 🇨🇭🇫🇷🇩🇪🇮🇹
 
-Private 3D real-estate board game in the browser: pick a country, 52-space board, houses → hotel → skyscraper,
-trading, multiplayer via invite link, bots and long games with a turn time limit.
+A 3D property-trading board game for the browser, with a con-man travel agency as its theme ("Hochstapler" is German for
+impostor, and also for someone who stacks things high). Pick a country, travel a 52-space board, buy places, build houses →
+hotel → skyscraper, trade with counteroffers, gamble on securities, and play with friends via an invite link or against
+bots. Languages: German, English, French, Italian and Lucerne Swiss German.
 
-All design decisions: [docs/DESIGN.md](docs/DESIGN.md) · Assets: [docs/ASSETS.md](docs/ASSETS.md)
+Play it at <https://hochstapler.openplace.net>.
+
+## How it started
+
+This began as a game to play at home with my son, on the couch, one laptop as the server and everybody else on a phone or
+tablet. It grew from there into a hosted game with themes, bots and a decision log. Most of the code was written together
+with AI coding agents (Claude Code, Codex); the 3D models were generated with Meshy and the Lucerne Swiss German texts were
+drafted with GPT and proofread. Every decision, including the rejected ones, is recorded in
+[docs/DESIGN.md](docs/DESIGN.md).
+
+## License
+
+Code: [MIT](LICENSE). The 3D models and token images are **not** MIT-licensed, see [NOTICE.md](NOTICE.md).
+Security issues: see [SECURITY.md](SECURITY.md).
+
+All design decisions: [docs/DESIGN.md](docs/DESIGN.md) · Assets: [docs/ASSETS.md](docs/ASSETS.md) · Rules for contributors
+and coding agents: [AGENTS.md](AGENTS.md)
 
 ## Getting started
 

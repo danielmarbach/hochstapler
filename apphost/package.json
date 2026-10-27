@@ -2,6 +2,7 @@
   "name": "hochstapler-apphost",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Aspire AppHost for local development (aspire run); separate from the game's workspaces, never deployed",
   "engines": {
