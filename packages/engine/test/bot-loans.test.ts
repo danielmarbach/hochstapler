@@ -181,5 +181,6 @@ describe("bots and bank loans", () => {
       assertInvariants(a);
     }
     expect(borrowed).toBeGreaterThan(0);
-  });
+    // whole all-bot games: about 4 s alone, more under a parallel full run
+  }, 30_000);
 });
