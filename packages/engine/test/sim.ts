@@ -50,6 +50,8 @@ export interface SimConfig {
   humanAction?: (s: GameState, pid: PlayerId) => GameAction | null;
   /** replaces the random trade answers of human seats */
   humanTrade?: (s: GameState, pid: PlayerId) => GameAction[];
+  /** observer of every committed step (measurements, e.g. the balance runs) */
+  onStep?: (prev: GameState, next: GameState) => void;
 }
 
 export interface SimResult {
@@ -220,6 +222,7 @@ export function runSim(cfg: SimConfig): SimResult {
     if (next !== prev) {
       lastNow = at;
       assertInvariants(next, { lastNow, prevVersion: prev.version });
+      cfg.onStep?.(prev, next);
     }
     for (const t of next.trades) {
       const was = prev.trades.find((x) => x.id === t.id);

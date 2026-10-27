@@ -56,6 +56,8 @@ export const StoredLobbySchema = z.object({
     securitiesDividends: GameSettingsSchema.shape.securitiesDividends.default(
       DEFAULT_SETTINGS.securitiesDividends,
     ),
+    // lobbies stored before the show-off mode: off, the default of a new game
+    loans: GameSettingsSchema.shape.loans.default(DEFAULT_SETTINGS.loans),
   }),
   seats: z.array(StoredSeatSchema).max(8),
   maxPlayers: z.number().int().min(2).max(8),

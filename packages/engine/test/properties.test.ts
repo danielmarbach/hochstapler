@@ -60,6 +60,7 @@ const settingsArb: fc.Arbitrary<GameSettings> = fc.record({
   securities: fc.boolean(),
   securitiesLockRounds: fc.integer({ min: 1, max: 10 }),
   securitiesDividends: fc.boolean(),
+  loans: fc.boolean(),
 });
 
 const seatsArb = fc.array(fc.constantFrom<"human" | "bot">("human", "human", "bot"), {
@@ -113,6 +114,8 @@ const TYPES: GameAction["type"][] = [
   "unmortgage",
   "buy-securities",
   "sell-securities",
+  "take-loan",
+  "repay-loan",
   "propose-trade",
   "respond-trade",
   "cancel-trade",
@@ -150,6 +153,9 @@ function arbitraryAction(s: GameState, st: Step): GameAction {
         secId: Object.keys(s.market?.prices ?? { none: 1 })[st.b % 7] ?? "ch-nope",
         lot: st.d % 4 === 0 ? "all" : st.a % 5,
       };
+    case "take-loan":
+    case "repay-loan":
+      return { type, amount: st.d % 3 === 0 ? st.c : (st.c % 12) * 100 };
     case "respond-trade":
       return {
         type,

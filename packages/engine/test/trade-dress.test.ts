@@ -55,6 +55,7 @@ describe("trade dress: no names or card formulas of the classic property-trading
             ["name", text.name],
             ["deck.chance", text.deckNames.chance],
             ["deck.community", text.deckNames.community],
+            ["lender", text.lender],
             ...text.groupNames.map((n, i): [string, string] => [`group${i}`, n]),
             ...text.tokens.map((t): [string, string] => [`token.${t.id}`, t.name]),
             ...Object.entries(text.cardTexts),

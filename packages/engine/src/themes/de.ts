@@ -152,6 +152,7 @@ export const de: Theme = {
     "cc-inherit": `Deine Tante aus Bayern (sagst du) hinterlässt dir ${m(100)}.`,
   },
   deckNames: { chance: "Postkarte", community: "Bundesland" },
+  lender: "Der Privatbankier im Frankfurter Westend",
   botNames: [
     "Klaus Kartoffel",
     "Helga Brezel",

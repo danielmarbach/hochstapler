@@ -150,4 +150,15 @@ export const en = {
   "err.secNoLot": "There is no such position in the portfolio",
   "err.secLocked": "Locked for {rounds} more rounds – only sellable in debt, at a discount",
   "err.secTooManyLots": "Too many positions in the portfolio",
+  // ---- show-off mode (bank loans) ----
+  "log.loanTaken": "{player} borrows {amount} from the bank at {pct} % per round.",
+  "log.loanInterest": "{player} pays the bank {amount} in loan interest.",
+  "log.loanRepaid": "{player} pays the bank back {amount} of the loan.",
+  "log.loanWrittenOff": "The bank writes off {player}'s loan of {amount}.",
+  "err.loanOff": "Show-off mode is not active in this game",
+  "err.loanNotNow": "Loans only on your own turn and with no payment pending",
+  "err.loanStep": "Loans only in steps of {amount}",
+  "err.loanLimit": "Credit line used up: {amount} left",
+  "err.loanTooMuch": "You only owe the bank {amount}",
+  "err.loanNone": "You have no open loan",
 } as const satisfies EngineMessages;

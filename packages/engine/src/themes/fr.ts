@@ -152,6 +152,7 @@ export const fr: Theme = {
     "cc-inherit": `Eine wildfremde Tante aus der Provence vererbt dir ${m(100)}.`,
   },
   deckNames: { chance: "Postkarte", community: "Mairie" },
+  lender: "Der Bankier an der Place Vendôme",
   botNames: [
     "Jean Baguette",
     "Amélie Croissant",

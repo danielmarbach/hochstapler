@@ -557,7 +557,15 @@ export class GameRoom {
       });
     }
     for (const e of events) {
-      if (e.type === "game-over") {
+      if (e.type === "loan") {
+        // show-off mode (docs/DESIGN.md #93): amount (negative = repaid) and the locked rate, seat index only
+        spanEvent("game.loan", {
+          "game.id": spanGameId(this.lobby.gameId),
+          "game.seat.index": state.players.findIndex((p) => p.id === e.playerId),
+          "game.loan.amount": e.amount,
+          "game.loan.rate_pct": e.ratePct,
+        });
+      } else if (e.type === "game-over") {
         spanEvent("game.ended", {
           "game.id": spanGameId(this.lobby.gameId),
           "game.end.reason":

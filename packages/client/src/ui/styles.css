@@ -3998,3 +3998,46 @@ dialog.modal-bg .endvote {
     height: 30px;
   }
 }
+
+/* ---- show-off mode (Protzmodus, docs/DESIGN.md #93): loan dialog and the debt line on the player card ---- */
+.ploan {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bad);
+}
+.loan .tbody {
+  display: grid;
+  gap: 14px;
+  padding-top: 4px;
+}
+.loan section {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.loan-lender {
+  margin: 0;
+  font-style: italic;
+}
+.loan-rate {
+  margin: 0;
+  font: 400 26px/1.1 var(--display);
+  color: var(--bad);
+}
+.loan .note {
+  margin: 0;
+}
+.loan-tranches {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+}
+.loan .cta,
+.loan .ghost {
+  min-height: 44px;
+}
+@media (min-width: 600px) {
+  .trade.loan {
+    width: min(520px, 100%);
+  }
+}

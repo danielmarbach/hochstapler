@@ -13,6 +13,7 @@ import type {
   BuildingLevel,
   GameState,
   Holding,
+  LoanTranche,
   LogEntry,
   Market,
   MarketActivity,
@@ -41,6 +42,7 @@ const PlayerResultSchema = z.object({
   buildings: money,
   mortgages: money,
   securities: money.optional(),
+  loans: money.optional(),
   total: money,
 });
 
@@ -79,6 +81,13 @@ const MarketSchema = z.object({
   activity: MarketActivitySchema,
 });
 
+/** tranches merge per rate, so there are at most as many as whole-percent rates */
+const MAX_LOAN_TRANCHES = 100;
+const LoanTrancheSchema = z.object({
+  amount: z.number().int().min(1),
+  ratePct: z.number().int().min(1).max(100),
+});
+
 const PlayerStateSchema = z.object({
   id: playerId,
   name: z.string().max(100),
@@ -95,6 +104,7 @@ const PlayerStateSchema = z.object({
   missedTurns: counter,
   holdings: z.array(HoldingSchema).max(MAX_HOLDING_LOTS).optional(),
   dividends: counter.optional(),
+  loans: z.array(LoanTrancheSchema).max(MAX_LOAN_TRANCHES).optional(),
 });
 
 const buildingLevel = z.union([
@@ -158,6 +168,7 @@ const TurnPhaseSchema = z.discriminatedUnion("type", [
     creditor: playerId.nullable(),
     amount: counter,
     auctionTile: tileIndex.optional(),
+    loanInterest: z.literal(true).optional(),
   }),
   z.object({
     type: z.literal("game-over"),
@@ -217,6 +228,7 @@ export type StateSchemaContractChecks = [
   Assert<Equals<z.infer<typeof PlayerStateSchema>, PlayerState>>,
   Assert<Equals<z.infer<typeof PropertyStateSchema>, PropertyState>>,
   Assert<Equals<z.infer<typeof HoldingSchema>, Holding>>,
+  Assert<Equals<z.infer<typeof LoanTrancheSchema>, LoanTranche>>,
   Assert<Equals<z.infer<typeof MarketActivitySchema>, MarketActivity>>,
   Assert<Equals<z.infer<typeof MarketHeadlineSchema>, MarketHeadline>>,
   Assert<Equals<z.infer<typeof MarketSchema>, Market>>,

@@ -232,6 +232,22 @@ export class Actor {
     await expect(this.testId("trade-dialog")).toBeVisible();
   }
 
+  /** opens the loan dialog of the show-off mode (phone: from the action row of the collapsed sheet) */
+  async openLoan(): Promise<void> {
+    if (!(await this.testId("loan-dialog").isVisible())) {
+      if (this.phone) {
+        await this.collapseSheet();
+      }
+      await this.testId("open-loan").click();
+    }
+    await expect(this.testId("loan-dialog")).toBeVisible();
+  }
+
+  async closeLoan(): Promise<void> {
+    await this.testId("loan-close").click();
+    await expect(this.testId("loan-dialog")).toBeHidden();
+  }
+
   async closeTrade(): Promise<void> {
     await this.testId("trade-close").click();
     await expect(this.testId("trade-dialog")).toBeHidden();

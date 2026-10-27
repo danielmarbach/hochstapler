@@ -110,6 +110,28 @@ const VARIANTS: Variant[] = [
     tradeRate: 0.1,
     returnRate: 0.1,
   },
+  {
+    ...BASE,
+    name: "show-off mode (bank loans)",
+    settings: { turnTimeoutSec: 0, loans: true },
+    players: [2, 8],
+  },
+  {
+    ...BASE,
+    name: "show-off mode with securities, poor start",
+    settings: { turnTimeoutSec: 0, loans: true, securities: true, startingCash: 500 },
+    players: [2, 6],
+  },
+  {
+    ...BASE,
+    name: "show-off mode with humans, timeouts and trades",
+    settings: { turnTimeoutSec: 30, loans: true },
+    players: [2, 6],
+    humans: 2,
+    style: "sometimes",
+    tradeRate: 0.1,
+    returnRate: 0.1,
+  },
   { ...BASE, name: "maxRounds 5", settings: { turnTimeoutSec: 0, maxRounds: 5 }, players: [2, 8] },
   {
     ...BASE,

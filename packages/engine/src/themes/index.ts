@@ -7,6 +7,7 @@ import { GSW_THEME_TEXTS } from "./gsw.ts";
 import { FR_THEME_TEXTS } from "./texts-fr.ts";
 import { IT_THEME_TEXTS } from "./texts-it.ts";
 import { SECURITY_NAMES } from "./securities.ts";
+import { LENDER_NAMES } from "./lenders.ts";
 import type { Lang } from "../i18n/lang.ts";
 
 /** Attach the Swiss German texts (kept in one generated file, see scripts/i18n/import-gsw.ts). */
@@ -43,11 +44,23 @@ function withSecurityNames(theme: Theme): Theme {
   return { ...theme, i18n };
 }
 
+/** Attach the translated lender of the show-off mode (lenders.ts). */
+function withLender(theme: Theme): Theme {
+  const i18n: Partial<Record<Lang, ThemeTexts>> = { ...theme.i18n };
+  for (const [lang, names] of Object.entries(LENDER_NAMES) as [Lang, Record<string, string>][]) {
+    const lender = names[theme.id];
+    if (lender !== undefined) {
+      i18n[lang] = { ...i18n[lang], lender };
+    }
+  }
+  return { ...theme, i18n };
+}
+
 export const THEMES: Record<string, Theme> = {
-  ch: withSecurityNames(withFrIt(withGsw(ch))),
-  fr: withSecurityNames(withFrIt(withGsw(fr))),
-  de: withSecurityNames(withFrIt(withGsw(de))),
-  it: withSecurityNames(withFrIt(withGsw(it))),
+  ch: withLender(withSecurityNames(withFrIt(withGsw(ch)))),
+  fr: withLender(withSecurityNames(withFrIt(withGsw(fr)))),
+  de: withLender(withSecurityNames(withFrIt(withGsw(de)))),
+  it: withLender(withSecurityNames(withFrIt(withGsw(it)))),
 };
 
 export function getTheme(id: string): Theme {

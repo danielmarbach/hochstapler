@@ -15,6 +15,9 @@ import { EndGameDialog, EndVoteBanner, GameMenu } from "./EndGame.tsx";
 import { LangSelect } from "./LangPicker.tsx";
 import { PropertyCard, Drawer } from "./Property.tsx";
 import { TradeDialog } from "./Trade.tsx";
+import { LoanDialog } from "./Loan.tsx";
+import { loanBadge } from "./loans.ts";
+import { useLang } from "../i18n/lang.ts";
 import { LogPanel } from "./Log.tsx";
 import { Results } from "./Results.tsx";
 import {
@@ -45,6 +48,7 @@ export function Hud() {
   const selected = useApp((s) => s.selectedTile);
   const drawer = useApp((s) => s.drawerOpen);
   const trade = useApp((s) => s.tradeOpen);
+  const loan = useApp((s) => s.loanOpen);
   const connected = useApp((s) => s.connected);
   const follow = useApp((s) => s.followCam);
   const bloom = useApp((s) => s.bloom);
@@ -131,6 +135,7 @@ export function Hud() {
       )}
       {!phone && drawer && <Drawer />}
       {trade && <TradeDialog />}
+      {loan && you && state.settings.loans && <LoanDialog />}
       {phone ? <BottomSheet /> : <LogPanel />}
       {!phone && you && <ActionBar />}
       {!phone && !you && (
@@ -300,6 +305,7 @@ export function PlayerPanels({
   const state = useApp((s) => s.state);
   const you = useApp((s) => s.you);
   const presence = useApp((s) => s.presence);
+  const lang = useLang();
   if (!state) return null;
   const cur = state.players[state.current]?.id;
   if (compact) {
@@ -375,6 +381,11 @@ export function PlayerPanels({
                 {p.inJail ? ` · ${t("player.inJail")}` : ""}
                 {p.jailCards.length ? ` · 🎟 ${p.jailCards.length}` : ""}
               </div>
+              {state.settings.loans && loanBadge(asGame(state), p, lang) !== null && (
+                <div class="ploan" data-testid="player-loan">
+                  {loanBadge(asGame(state), p, lang)}
+                </div>
+              )}
               {stamps.length > 0 && (
                 <ul class="stamps" aria-label={t("hud.stamps")}>
                   {stamps.map((st) => {

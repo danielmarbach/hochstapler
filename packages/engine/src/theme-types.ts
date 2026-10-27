@@ -34,6 +34,8 @@ export interface ThemeTexts {
   tokenNames?: Record<string, string>;
   /** security id -> company name (only where a translation is natural; else the German name) */
   securityNames?: Record<string, string>;
+  /** who lends the money in the show-off mode, e.g. "The private banker on Paradeplatz" */
+  lender?: string;
 }
 
 export interface Theme {
@@ -51,6 +53,8 @@ export interface Theme {
   /** text for every card id defined in engine/src/cards.ts */
   cardTexts: Record<string, string>;
   deckNames: { chance: string; community: string };
+  /** show-off mode: the institution that lends the money, as the subject of a sentence (docs/DESIGN.md #93) */
+  lender: string;
   /** ≥ 8 country-flavoured names for bot seats (unique per theme, ≤ 24 chars) */
   botNames: string[];
   /** 6-8 themed tokens */

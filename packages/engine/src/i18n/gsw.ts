@@ -155,4 +155,15 @@ export const gsw = {
   "err.secNoLot": "Die Position gits im Depot ned",
   "err.secLocked": "No {rounds} Rundene gsperrt – nur bi Schulde mit Abschlag verchäufbar",
   "err.secTooManyLots": "Z vill Positione im Depot",
+  // ---- Protzmodus (Kredit vo de Bank) ----
+  "log.loanTaken": "{player} pumpt sich {amount} bi de Bank, zu {pct} % pro Rundi.",
+  "log.loanInterest": "{player} zahlt de Bank {amount} Zins.",
+  "log.loanRepaid": "{player} zahlt de Bank {amount} vom Kredit zrogg.",
+  "log.loanWrittenOff": "D Bank schriibt de Kredit vo {player} över {amount} ab.",
+  "err.loanOff": "De Protzmodus isch i dem Spiel nid aktiv",
+  "err.loanNotNow": "Kredit nur im eigete Zug und ohni offeni Zahlig",
+  "err.loanStep": "Kredit nur i Schrett vo {amount}",
+  "err.loanLimit": "Kreditrahme usgschöpft: no {amount} frei",
+  "err.loanTooMuch": "Du schuldsch de Bank nur {amount}",
+  "err.loanNone": "Du hesch kei offne Kredit",
 } as const satisfies EngineMessages;

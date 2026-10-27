@@ -153,6 +153,7 @@ export const it: Theme = {
     "cc-inherit": `Eine toskanische Nonna hält dich für ihren Enkel: Du erbst ${m(100)}.`,
   },
   deckNames: { chance: "Postkarte", community: "Comune" },
+  lender: "Der Bankier an der Piazza Affari",
   botNames: [
     "Luigi Lasagne",
     "Giulia Gelato",

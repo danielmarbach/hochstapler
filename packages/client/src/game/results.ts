@@ -14,13 +14,17 @@ export function resultsOf(state: PublicGameState): PlayerResult[] {
   return ph.results ?? rankPlayers(state as unknown as GameState);
 }
 
-/** Lines of the net worth breakdown on the results screen; securities only when the mode was on. */
+/**
+ * Lines of the net worth breakdown on the results screen; securities and loans only when their mode
+ * was on.
+ */
 export type BreakdownKey =
   | "results.cash"
   | "results.properties"
   | "results.buildings"
   | "results.mortgages"
-  | "results.securities";
+  | "results.securities"
+  | "results.loans";
 
 export function breakdownLines(result: PlayerResult): (readonly [BreakdownKey, number])[] {
   const lines: (readonly [BreakdownKey, number])[] = [
@@ -31,6 +35,9 @@ export function breakdownLines(result: PlayerResult): (readonly [BreakdownKey, n
   ];
   if (result.securities !== undefined) {
     lines.push(["results.securities", result.securities]);
+  }
+  if (result.loans !== undefined) {
+    lines.push(["results.loans", result.loans]);
   }
   return lines;
 }

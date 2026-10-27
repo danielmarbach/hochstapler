@@ -104,6 +104,12 @@ export function Lobby() {
                 </span>
               </span>
             )}
+            {lobby.settings.loans && (
+              <span data-testid="lobby-loans">
+                {" · "}
+                {t("lobby.loans")}
+              </span>
+            )}
           </p>
           {!me && <div class="err">{t("lobby.notSeated")}</div>}
           <ul class="seats">

@@ -50,6 +50,7 @@ export function Home() {
   const [securities, setSecurities] = useState(DEFAULT_SETTINGS.securities);
   const [lockRounds, setLockRounds] = useState(DEFAULT_SETTINGS.securitiesLockRounds);
   const [dividends, setDividends] = useState(DEFAULT_SETTINGS.securitiesDividends);
+  const [loans, setLoans] = useState(DEFAULT_SETTINGS.loans);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   // the house rules start folded away (UI review T08): the summary names the active ones
@@ -87,6 +88,7 @@ export function Home() {
     ...(doubleGo ? [t("home.rule.doubleGo")] : []),
     ...(securities ? [t("home.rule.securities")] : []),
     ...(securities && dividends ? [t("home.rule.dividends")] : []),
+    ...(loans ? [t("home.rule.loans")] : []),
     ...(maxRounds > 0 ? [t("home.rules.rounds", { n: maxRounds })] : []),
   ];
   const setMaxSafe = (n: number) => {
@@ -123,6 +125,7 @@ export function Home() {
         securities,
         securitiesLockRounds: lockRounds,
         securitiesDividends: dividends,
+        loans,
       };
       const request = {
         hostName: name.trim(),
@@ -368,6 +371,13 @@ export function Home() {
                       testid="toggle-dividends"
                     />
                   )}
+                  <Toggle
+                    label={t("home.rule.loans")}
+                    sub={t("home.rule.loans.sub")}
+                    on={loans}
+                    set={setLoans}
+                    testid="toggle-loans"
+                  />
                   <label class="stepper">
                     {t("home.roundLimit")} <small>{t("home.roundLimit.hint")}</small>
                     <span>

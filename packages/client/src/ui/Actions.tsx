@@ -66,6 +66,18 @@ function ActionBarFor({
 
   if (!me) return null;
   const canRoll = can("roll");
+  /** show-off mode: the loan dialog (borrow before buying or building, repay any time on the own turn) */
+  const loanButton = (cls: string) =>
+    state.settings.loans && !me.bankrupt ? (
+      <button
+        class={cls}
+        data-testid="open-loan"
+        disabled={!legal.includes("take-loan") && !legal.includes("repay-loan")}
+        onClick={() => set({ loanOpen: true })}
+      >
+        {t("action.loan")}
+      </button>
+    ) : null;
   const again = phase.type === "await-end-turn" && phase.canRollAgain;
   const isMyTurn = state.players[state.current]?.id === you;
 
@@ -230,6 +242,7 @@ function ActionBarFor({
           >
             {state.settings.auctions ? t("action.declineAuction") : t("action.decline")}
           </button>
+          {compact && legal.includes("take-loan") && loanButton("ghost")}
         </div>
       </div>
     );
@@ -308,6 +321,9 @@ function ActionBarFor({
             <span class="wait">{isMyTurn ? t("action.busy") : t("action.waitOthers")}</span>
           )
         )}
+        {compact &&
+          (legal.includes("take-loan") || legal.includes("repay-loan")) &&
+          loanButton("ghost")}
         {me.inJail && phase.type === "await-roll" && isMyTurn && (
           <span class="hint" data-testid="jail-hint">
             {t("action.jailHint")}
@@ -354,6 +370,7 @@ function ActionBarFor({
             {t("action.securities")}
           </button>
         )}
+        {loanButton("pill")}
         <button
           class="pill"
           data-testid="open-trade"

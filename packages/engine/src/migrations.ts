@@ -14,8 +14,9 @@ import type { GameState } from "./types.ts";
  * Version 1 = the shape before versioning existed (all games created up to this point).
  * Version 2 = securities mode: settings.securities / securitiesLockRounds (docs/DESIGN.md #48).
  * Version 3 = securities dividends: settings.securitiesDividends (docs/DESIGN.md #83).
+ * Version 4 = show-off mode (bank loans): settings.loans (docs/DESIGN.md #93).
  */
-export const CURRENT_STATE_VERSION = 3;
+export const CURRENT_STATE_VERSION = 4;
 
 /** Pure transformation of the stored JSON from one state version to the next. */
 export type StateMigrationStep = (json: unknown) => unknown;
@@ -66,8 +67,24 @@ export const migrateV2toV3: StateMigrationStep = (json) => {
   return { ...state, settings: { ...settings, securitiesDividends: false } };
 };
 
+/**
+ * v3 -> v4: the show-off mode did not exist; running games keep their rules (no loans).
+ * PlayerState.loans and the debt flag `loanInterest` are optional and need no step.
+ */
+export const migrateV3toV4: StateMigrationStep = (json) => {
+  const state = structuredClone(json);
+  if (typeof state !== "object" || state === null || !("settings" in state)) {
+    return state;
+  }
+  const settings: unknown = state.settings;
+  if (typeof settings !== "object" || settings === null) {
+    return state;
+  }
+  return { ...state, settings: { ...settings, loans: false } };
+};
+
 /** Index i migrates v(i+1) -> v(i+2). */
-const STATE_STEPS: readonly StateMigrationStep[] = [migrateV1toV2, migrateV2toV3];
+const STATE_STEPS: readonly StateMigrationStep[] = [migrateV1toV2, migrateV2toV3, migrateV3toV4];
 
 export const STATE_MIGRATION_CHAIN: StateMigrationChain = {
   current: CURRENT_STATE_VERSION,

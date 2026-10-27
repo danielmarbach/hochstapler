@@ -11,6 +11,8 @@ export interface ResolvedThemeText {
   tokens: ThemeToken[];
   /** company names by security id */
   securityNames: Record<string, string>;
+  /** show-off mode: who lends the money (subject of a sentence) */
+  lender: string;
 }
 
 /** Texts of `theme` in `lang`; every missing field falls back to the German base. */
@@ -22,6 +24,7 @@ export function themeText(theme: Theme, lang: Lang): ResolvedThemeText {
     name: t?.name ?? theme.name,
     groupNames: groupNames ?? theme.groupNames,
     deckNames: t?.deckNames ?? theme.deckNames,
+    lender: t?.lender ?? theme.lender,
     cardTexts: { ...theme.cardTexts, ...t?.cardTexts },
     securityNames: Object.fromEntries(
       theme.securities.map((c) => [c.id, t?.securityNames?.[c.id] ?? c.name]),

@@ -29,3 +29,4 @@ export * from "./helpers.ts"; // netWorth, groupTiles, ownsGroup, canBuild, rent
 export { THEMES, getTheme } from "./themes/index.ts"; // Record<string, Theme>, (id) => Theme
 export * from "./result.ts";
 export * from "./securities.ts"; // Wertpapiere: price model, lock-up, portfolio helpers (docs/DESIGN.md #48)
+export * from "./loans.ts"; // Protzmodus: bank loans, wealth-based rate, tranches (docs/DESIGN.md #93)

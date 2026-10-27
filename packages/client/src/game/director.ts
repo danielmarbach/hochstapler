@@ -282,6 +282,19 @@ class Director {
         }
         break;
       }
+      case "loan":
+        say(
+          ev.amount > 0
+            ? t("toast.loanTaken", {
+                name: name(ev.playerId),
+                amount: money(ev.amount),
+                pct: ev.ratePct,
+              })
+            : t("toast.loanRepaid", { name: name(ev.playerId), amount: money(-ev.amount) }),
+          "info",
+          ev.playerId,
+        );
+        break;
       case "dividend":
         // everybody sees the log line; the toast is for the receiving player only
         if (ev.playerId === you) {

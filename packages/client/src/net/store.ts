@@ -59,6 +59,8 @@ export interface AppState {
   drawerTab: "props" | "securities" | "board";
   tradeOpen: boolean;
   tradeDraft: TradeDraft | null;
+  /** loan dialog of the show-off mode (docs/DESIGN.md #93) */
+  loanOpen: boolean;
   /** confirmation dialog of "end game…" */
   endGameDialog: boolean;
   logOpen: boolean;
@@ -96,6 +98,7 @@ export const initialState: AppState = {
   drawerTab: "props",
   tradeOpen: false,
   tradeDraft: null,
+  loanOpen: false,
   endGameDialog: false,
   logOpen: false,
   followCam: true,

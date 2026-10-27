@@ -156,6 +156,7 @@ export const ch: Theme = {
     "cc-inherit": `Deine nagelneue Grosstante aus dem Emmental hinterlässt dir ${m(100)}.`,
   },
   deckNames: { chance: "Postkarte", community: "Kanton" },
+  lender: "Der Privatbankier am Paradeplatz",
   botNames: [
     "Heidi vom Pilatus",
     "Ueli Chäsli",

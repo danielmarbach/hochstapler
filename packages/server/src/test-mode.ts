@@ -13,6 +13,7 @@ import {
   GameError,
   HISTORY_LENGTH,
   MAX_PRICE,
+  LOAN_STEP,
   MAX_SHARES_PER_SECURITY,
   attemptSync,
   getTheme,
@@ -137,8 +138,15 @@ const MarketPatchSchema = z.strictObject({
     .optional(),
 });
 
+/** Show-off mode fixtures: open loan tranches (docs/DESIGN.md #93). */
+const LoanPatchSchema = z.strictObject({
+  amount: z.number().int().min(LOAN_STEP).multipleOf(LOAN_STEP),
+  ratePct: z.number().int().min(1).max(100),
+});
+
 const PlayerPatchSchema = z.strictObject({
   holdings: z.array(HoldingPatchSchema).max(20).optional(),
+  loans: z.array(LoanPatchSchema).max(10).optional(),
   cash: z.number().int().min(0).max(1_000_000).optional(),
   position: z
     .number()
@@ -250,6 +258,11 @@ export function applyStatePatch(state: GameState, patch: StatePatch, now: number
       if (h.boughtRound > next.round) {
         fail(`Position of ${player.id} is from the future`);
       }
+    }
+  }
+  for (const player of next.players) {
+    if (player.loans !== undefined && !next.settings.loans) {
+      fail("Show-off mode is not active in this game");
     }
   }
   if (patch.market) {

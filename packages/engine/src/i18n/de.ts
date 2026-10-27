@@ -163,4 +163,15 @@ export const de = {
   "err.secNoLot": "Diese Position gibt es im Depot nicht",
   "err.secLocked": "Noch {rounds} Runden gesperrt – nur bei Schulden mit Abschlag verkäuflich",
   "err.secTooManyLots": "Zu viele Positionen im Depot",
+  // ---- show-off mode (Protzmodus, bank loans) ----
+  "log.loanTaken": "{player} pumpt sich {amount} bei der Bank, zu {pct} % pro Runde.",
+  "log.loanInterest": "{player} zahlt der Bank {amount} Kreditzins.",
+  "log.loanRepaid": "{player} zahlt der Bank {amount} Kredit zurück.",
+  "log.loanWrittenOff": "Die Bank schreibt den Kredit von {player} über {amount} ab.",
+  "err.loanOff": "Der Protzmodus ist in diesem Spiel nicht aktiv",
+  "err.loanNotNow": "Kredit nur im eigenen Zug und ohne offene Zahlung",
+  "err.loanStep": "Kredit nur in Schritten von {amount}",
+  "err.loanLimit": "Kreditrahmen ausgeschöpft: noch {amount} frei",
+  "err.loanTooMuch": "Du schuldest der Bank nur {amount}",
+  "err.loanNone": "Du hast keinen offenen Kredit",
 } as const;

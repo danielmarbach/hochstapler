@@ -92,6 +92,14 @@ export interface PlayerState {
   holdings?: Holding[];
   /** dividends received so far in total (only when the securities dividends paid at least once) */
   dividends?: number;
+  /** show-off mode: open bank loans, most expensive first (absent = no debt; docs/DESIGN.md #93) */
+  loans?: LoanTranche[];
+}
+
+/** One bank loan tranche of the show-off mode: `amount` owed at `ratePct` interest per round. */
+export interface LoanTranche {
+  amount: number;
+  ratePct: number;
 }
 
 export interface PropertyState {
@@ -120,6 +128,8 @@ export interface GameSettings {
   securitiesLockRounds: number;
   /** pay dividends on securities at every round end (only with `securities`; docs/DESIGN.md #83) */
   securitiesDividends: boolean;
+  /** "Protzmodus": players may take bank loans with a wealth-based interest (docs/DESIGN.md #93) */
+  loans: boolean;
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
@@ -137,6 +147,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   securities: false,
   securitiesLockRounds: 3,
   securitiesDividends: true,
+  loans: false,
 };
 
 /** What happened in the game since the last market update; drives the coupling (securities.ts). */
@@ -235,6 +246,8 @@ export type TurnPhase =
       amount: number;
       /** set when the debt is the winning bid of an auction (the debtor need not be the current player) */
       auctionTile?: number;
+      /** set when the debt is the loan interest due at the start of the turn (settled -> await-roll) */
+      loanInterest?: true;
     }
   | {
       type: "game-over";
@@ -259,6 +272,8 @@ export interface NetWorthBreakdown {
   mortgages: number;
   /** holdings at market price; only present when the securities mode is on */
   securities?: number;
+  /** negative: the open bank loans; only present when the show-off mode is on */
+  loans?: number;
   total: number;
 }
 
@@ -348,6 +363,10 @@ export type GameAction =
   | { type: "buy-securities"; secId: string; shares: number }
   /** securities: sell the lot at portfolio index `lot` (or all lots of `secId`) */
   | { type: "sell-securities"; secId: string; lot: number | "all" }
+  /** show-off mode: borrow `amount` from the bank at the rate locked now (own turn) */
+  | { type: "take-loan"; amount: number }
+  /** show-off mode: pay `amount` of the loans back (own turn) */
+  | { type: "repay-loan"; amount: number }
   | { type: "end-turn" }
   | { type: "declare-bankruptcy" }
   /** ask everybody to end the game now; the richest player wins */
@@ -369,6 +388,8 @@ export type CashReason =
   | "auction"
   | "free-parking"
   | "securities"
+  | "loan"
+  | "loan-interest"
   | "bankruptcy";
 
 /** Events describe what happened, in order — used by the client for animation and the log. */
@@ -410,6 +431,8 @@ export type GameEvent =
       side: "buy" | "sell" | "emergency-sell" | "bankruptcy-sale";
     }
   | { type: "market"; round: number; headline: MarketHeadline | null }
+  /** show-off mode: a loan taken (positive) or repaid (negative), with the rate locked for it */
+  | { type: "loan"; playerId: PlayerId; amount: number; ratePct: number }
   /** dividends credited to a player at the end of `round` (one event per paid player) */
   | { type: "dividend"; playerId: PlayerId; amount: number; round: number }
   | { type: "trade"; trade: Trade }

@@ -20,6 +20,7 @@ import {
   unmortgageBlocker,
   unmortgageCost,
 } from "./helpers.ts";
+import { borrowAction, repayAction } from "./bot-loans.ts";
 import { debtSecuritiesAction, turnSecuritiesAction } from "./bot-securities.ts";
 import { hash01 } from "./rng.ts";
 import { tradeProblem } from "./trade-rules.ts";
@@ -457,6 +458,11 @@ export function chooseBotAction(state: GameState, playerId: PlayerId): GameActio
       if (!isCur) {
         return null;
       }
+      // show-off mode: pay loans back before rolling when the cash allows
+      const repay = repayAction(state, me, prof);
+      if (repay) {
+        return repay;
+      }
       if (me.inJail) {
         if (me.jailCards.length > 0) {
           return { type: "use-jail-card" };
@@ -477,7 +483,8 @@ export function chooseBotAction(state: GameState, playerId: PlayerId): GameActio
       }
       const price = priceOf(tileDef(ph.tile));
       if (me.cash < price) {
-        return { type: "decline-buy" };
+        // show-off mode: borrow for the tile that completes a colour group
+        return borrowAction(state, me, prof) ?? { type: "decline-buy" };
       }
       const key = completesGroup(state, me.id, ph.tile) || blocksOpponent(state, me.id, ph.tile);
       if (key && me.cash - price >= 0) {
@@ -519,6 +526,11 @@ export function chooseBotAction(state: GameState, playerId: PlayerId): GameActio
         );
       if (builds.length > 0) {
         return { type: "build", tile: at(builds, 0) };
+      }
+      // 2b. show-off mode: borrow to build on a full colour set (the builds follow in the next steps)
+      const loan = borrowAction(state, me, prof);
+      if (loan) {
+        return loan;
       }
       // 3. securities mode: take profits, invest part of the surplus
       const securities = turnSecuritiesAction(

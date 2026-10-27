@@ -224,8 +224,8 @@ describe("Migration v2 -> v3 (Dividenden)", () => {
     return j;
   };
 
-  it("is the third state version", () => {
-    expect(CURRENT_STATE_VERSION).toBe(3);
+  it("introduced the third state version", () => {
+    expect(CURRENT_STATE_VERSION).toBeGreaterThanOrEqual(3);
   });
 
   it("needs a step: a v2 state without the setting does not validate", () => {

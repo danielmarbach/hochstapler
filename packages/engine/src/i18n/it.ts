@@ -155,4 +155,15 @@ export const it = {
   "err.secLocked":
     "Bloccato per altri {rounds} turni – vendibile solo in caso di debito, con uno sconto",
   "err.secTooManyLots": "Troppe posizioni nel portafoglio",
+  // ---- modalità sbruffone (prestiti bancari) ----
+  "log.loanTaken": "{player} si fa prestare {amount} dalla banca, al {pct} % per giro.",
+  "log.loanInterest": "{player} paga alla banca {amount} di interessi sul prestito.",
+  "log.loanRepaid": "{player} restituisce alla banca {amount} del prestito.",
+  "log.loanWrittenOff": "La banca cancella il prestito di {player} di {amount}.",
+  "err.loanOff": "La modalità sbruffone non è attiva in questa partita",
+  "err.loanNotNow": "Prestiti solo nel proprio turno e senza pagamenti in sospeso",
+  "err.loanStep": "Prestiti solo a passi di {amount}",
+  "err.loanLimit": "Linea di credito esaurita: ancora {amount} disponibili",
+  "err.loanTooMuch": "Devi alla banca solo {amount}",
+  "err.loanNone": "Non hai nessun prestito aperto",
 } as const satisfies EngineMessages;

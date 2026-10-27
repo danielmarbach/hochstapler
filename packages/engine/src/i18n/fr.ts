@@ -157,4 +157,15 @@ export const fr = {
   "err.secLocked":
     "Bloqué encore {rounds} tours – vendable seulement en cas de dette, avec une décote",
   "err.secTooManyLots": "Trop de positions dans le portefeuille",
+  // ---- mode frime (prêts bancaires) ----
+  "log.loanTaken": "{player} emprunte {amount} à la banque, à {pct} % par tour.",
+  "log.loanInterest": "{player} paie {amount} d'intérêts d'emprunt à la banque.",
+  "log.loanRepaid": "{player} rembourse {amount} de son emprunt à la banque.",
+  "log.loanWrittenOff": "La banque passe l'emprunt de {player} ({amount}) en pertes.",
+  "err.loanOff": "Le mode frime n'est pas actif dans cette partie",
+  "err.loanNotNow": "Emprunt seulement pendant ton tour et sans paiement en attente",
+  "err.loanStep": "Emprunt seulement par tranches de {amount}",
+  "err.loanLimit": "Ligne de crédit épuisée : encore {amount} disponible",
+  "err.loanTooMuch": "Tu ne dois que {amount} à la banque",
+  "err.loanNone": "Tu n'as aucun emprunt en cours",
 } as const satisfies EngineMessages;

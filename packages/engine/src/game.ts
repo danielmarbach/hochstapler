@@ -24,6 +24,7 @@ import {
   unmortgageBlockerMsg,
   unmortgageCost,
   isBuyable,
+  netWorth,
 } from "./helpers.ts";
 import { rollDie, shuffle } from "./rng.ts";
 import type { PublicGameState } from "./protocol.ts";
@@ -46,6 +47,17 @@ import {
   stepMarket,
   transferHoldings,
 } from "./securities.ts";
+import {
+  addTranche,
+  interestDue,
+  loanDebt,
+  loanRateFor,
+  loanRoom,
+  LOAN_STEP,
+  repayLoanBlocker,
+  repayTranches,
+  takeLoanBlocker,
+} from "./loans.ts";
 import { getTheme } from "./themes/index.ts";
 import {
   AUTO_BID_STEP,
@@ -340,6 +352,12 @@ export function legalActions(state: GameState, playerId: PlayerId): GameAction["
     ) {
       out.add("buy-securities");
     }
+  }
+  if (takeLoanBlocker(state, p, Math.min(LOAN_STEP, loanRoom(state, p))) === null) {
+    out.add("take-loan");
+  }
+  if (repayLoanBlocker(state, p, LOAN_STEP) === null) {
+    out.add("repay-loan");
   }
   switch (ph.type) {
     case "await-roll":
@@ -655,6 +673,8 @@ function dispatch(c: Ctx, p: PlayerState, a: GameAction): void {
     case "unmortgage":
     case "buy-securities":
     case "sell-securities":
+    case "take-loan":
+    case "repay-loan":
     case "declare-bankruptcy":
     case "end-turn":
       break;
@@ -746,6 +766,10 @@ function dispatch(c: Ctx, p: PlayerState, a: GameAction): void {
       settleDebt(c);
       return;
     }
+    case "take-loan":
+      return doTakeLoan(c, p, a.amount);
+    case "repay-loan":
+      return doRepayLoan(c, p, a.amount);
     case "end-turn":
       need(isCur && ph.type === "await-end-turn" && !ph.canRollAgain, "err.endTurnNotAllowed");
       return advanceTurn(c);
@@ -807,6 +831,13 @@ function settleDebt(c: Ctx): void {
   const creditor = ph.creditor ? player(c, ph.creditor) : null;
   const tile = tileDef(debtor.position);
   const auctionDebt = ph.auctionTile !== undefined;
+  if (ph.loanInterest === true) {
+    // the interest due at the start of the turn: paid, now the turn begins
+    cash(c, debtor, -ph.amount, "loan-interest", null);
+    log(c, "log.debtSettled", { player: debtor.id, amount: ph.amount });
+    c.s.phase = { type: "await-roll" };
+    return;
+  }
   const reason: CashReason = auctionDebt
     ? "auction"
     : creditor
@@ -1687,6 +1718,59 @@ function updateMarket(c: Ctx): void {
   }
 }
 
+// ------------------------------------------------------------------ show-off mode (Protzmodus, bank loans)
+
+function doTakeLoan(c: Ctx, p: PlayerState, amount: number): void {
+  const why = takeLoanBlocker(c.s, p, amount);
+  if (why) {
+    throw GameError.fromMsg(why);
+  }
+  const ratePct = loanRateFor(c.s, p.id, netWorth);
+  addTranche(p, amount, ratePct);
+  cash(c, p, amount, "loan", null);
+  emit(c, { type: "loan", playerId: p.id, amount, ratePct });
+  log(c, "log.loanTaken", { player: p.id, amount, pct: ratePct });
+}
+
+function doRepayLoan(c: Ctx, p: PlayerState, amount: number): void {
+  const why = repayLoanBlocker(c.s, p, amount);
+  if (why) {
+    throw GameError.fromMsg(why);
+  }
+  const ratePct = p.loans?.[0]?.ratePct ?? 0;
+  repayTranches(p, amount);
+  cash(c, p, -amount, "loan", null);
+  emit(c, { type: "loan", playerId: p.id, amount: -amount, ratePct });
+  log(c, "log.loanRepaid", { player: p.id, amount });
+}
+
+/**
+ * Start of a turn: the interest of all tranches is due in cash. Short of cash, the usual debt phase
+ * follows (flagged so that the turn starts once it is settled); the debt itself never grows.
+ */
+function chargeInterest(c: Ctx, p: PlayerState): void {
+  const due = interestDue(p);
+  if (due <= 0) {
+    return;
+  }
+  if (p.cash >= due) {
+    cash(c, p, -due, "loan-interest", null);
+    log(c, "log.loanInterest", { player: p.id, amount: due });
+    return;
+  }
+  c.s.phase = { type: "debt", debtor: p.id, creditor: null, amount: due, loanInterest: true };
+  log(c, "log.owes", { player: p.id, amount: due });
+}
+
+/** Bankruptcy: the open loans disappear with the player (the bank writes them off). */
+function writeOffLoans(c: Ctx, p: PlayerState): void {
+  const debt = loanDebt(p);
+  delete p.loans;
+  if (debt > 0) {
+    log(c, "log.loanWrittenOff", { player: p.id, amount: debt });
+  }
+}
+
 // ------------------------------------------------------------------ turn flow, bankruptcy, game end
 
 function advanceTurn(c: Ctx): void {
@@ -1713,6 +1797,7 @@ function advanceTurn(c: Ctx): void {
   s.doublesCount = 0;
   s.phase = { type: "await-roll" };
   emit(c, { type: "turn-start", playerId: at(s.players, i).id, round: s.round });
+  chargeInterest(c, at(s.players, i));
 }
 
 function endGame(c: Ctx, reason: GameOverReason): void {
@@ -1853,6 +1938,7 @@ function bankrupt(c: Ctx, p: PlayerState): void {
     a.bankruptcies++;
   });
   releaseHoldings(c, p, creditor);
+  writeOffLoans(c, p);
   if (creditor) {
     if (p.cash > 0) {
       cash(c, creditor, p.cash, "bankruptcy", p.id);

@@ -141,17 +141,20 @@ export function netWorthBreakdown(state: GameState, playerId: PlayerId): NetWort
   }
   // securities mode (docs/DESIGN.md #48): holdings count at the current market price
   const securities = state.market ? holdingsValue(state, playerId) : 0;
+  // show-off mode (docs/DESIGN.md #93): open bank loans are debt
+  const loans = 0 - (p.loans ?? []).reduce((sum, t) => sum + t.amount, 0);
   return {
     cash: p.cash,
     properties,
     buildings,
     mortgages,
     ...(state.market ? { securities } : {}),
-    total: p.cash + properties + buildings + mortgages + securities,
+    ...(state.settings.loans ? { loans } : {}),
+    total: p.cash + properties + buildings + mortgages + securities + loans,
   };
 }
 
-/** Cash + property value (mortgage value if mortgaged) + invested building value + securities. */
+/** Cash + property value (mortgage value if mortgaged) + invested building value + securities - loans. */
 export function netWorth(state: GameState, playerId: PlayerId): number {
   return netWorthBreakdown(state, playerId).total;
 }

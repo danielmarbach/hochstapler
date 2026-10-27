@@ -528,6 +528,19 @@ no dividend; rarely a company pays a special dividend or skips it. From round 20
 Details: decision #40/#48/#81/#84
 in [docs/DESIGN.md](docs/DESIGN.md); the UI is the "Wertpapiere" tab (phone: in the bottom menu).
 
+## Show-off mode (optional)
+
+The "Protzmodus" house rule on the start page (default: off) lets players borrow from the bank to buy and build
+faster. On your own turn, with no payment pending, you borrow in steps of 100 up to half the starting cash. The bank
+fixes the interest rate when you borrow, from your net worth compared with the table: 4 % per round for the poorest,
+8 % at the average, 25 % for the richest (linear in between). The interest is due in cash at the start of each of your
+turns (if you cannot pay, the usual debt rules apply: mortgage, sell buildings, else bankruptcy); repay any time on
+your own turn, the most expensive part first. Loans count against the net worth and vanish with a bankrupt player.
+The UI is the "Kredit" button in the action bar (phone: in the action row while it is your turn). Details and the
+balance measurement: decision #93 in [docs/DESIGN.md](docs/DESIGN.md); rerun it with
+`node packages/engine/test/loan-balance-run.ts <bots|proxy> <off|on> <fromSeed> <toSeed> [p/a/r]` and
+`... report <files>`.
+
 ## Database & migrations
 
 Multi-day games must never be lost through an update. Therefore there are two separate, versioned layers

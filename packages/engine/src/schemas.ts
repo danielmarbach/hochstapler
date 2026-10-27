@@ -23,6 +23,8 @@ const MAX_NAME_LENGTH = 24;
 /** generous bounds on the wire; the engine enforces the real limits (securities.ts) */
 const MAX_SHARES_ORDER = 1_000;
 const MAX_LOT_INDEX = 10_000;
+/** loans: the engine enforces the step and the limit (loans.ts) */
+const MAX_LOAN_ORDER = 100_000;
 
 const tile = z.number().int().min(0).max(MAX_TILE);
 const cash = z.number().int().min(0).max(MAX_CASH);
@@ -67,6 +69,8 @@ export const GameActionSchema = z.discriminatedUnion("type", [
     secId: id,
     lot: z.union([z.number().int().min(0).max(MAX_LOT_INDEX), z.literal("all")]),
   }),
+  z.object({ type: z.literal("take-loan"), amount: z.number().int().min(1).max(MAX_LOAN_ORDER) }),
+  z.object({ type: z.literal("repay-loan"), amount: z.number().int().min(1).max(MAX_LOAN_ORDER) }),
   z.object({ type: z.literal("end-turn") }),
   z.object({ type: z.literal("declare-bankruptcy") }),
   z.object({ type: z.literal("propose-end-game") }),
@@ -92,6 +96,7 @@ export const GameSettingsSchema = z.object({
   securities: z.boolean(),
   securitiesLockRounds: z.number().int().min(MIN_LOCK_ROUNDS).max(MAX_LOCK_ROUNDS),
   securitiesDividends: z.boolean(),
+  loans: z.boolean(),
 });
 
 /**

@@ -26,6 +26,7 @@ const CARD = '[data-testid="card-popup"]';
 const GAME_OVER = '[data-testid="game-over"]';
 const END_GAME_DIALOG = '[data-testid="end-game-dialog"]';
 const END_VOTE = '[data-testid="end-vote"]';
+const LOAN = '[data-testid="loan-dialog"]';
 
 test.describe("Start page and invitation", () => {
   test("Home", async ({ page, device }) => {
@@ -442,6 +443,45 @@ test.describe("Securities", () => {
     await expect(locked.getByTestId("lot-emergency-sell")).toBeVisible();
     await locked.scrollIntoViewIfNeeded();
     await verifyScreen(page, device, "securities-emergency");
+  });
+});
+
+test.describe("Show-off mode", () => {
+  /** Anna trails (Clara is rich) and already owes the bank two tranches */
+  test.beforeEach(async ({ table }) => {
+    await table.startGame({ loans: true });
+    await table.patch({
+      players: {
+        [table.playerId("Anna")]: {
+          cash: 900,
+          loans: [
+            { amount: 200, ratePct: 12 },
+            { amount: 300, ratePct: 4 },
+          ],
+        },
+        [table.playerId("Clara")]: { cash: 4200 },
+      },
+    });
+  });
+
+  test("Loan dialog with rate, tranches and repayment", async ({ page, device, table }) => {
+    await table.actor.openLoan();
+    const dialog = table.actor.testId("loan-dialog");
+    await expect(dialog.getByTestId("loan-rate")).toHaveText(
+      "Die Bank verlangt von dir 4 % pro Runde.",
+    );
+    await expect(dialog.getByTestId("loan-tranche")).toHaveCount(2);
+    await expectVisibleWithoutScrolling(dialog.getByTestId("loan-take-confirm"), "Borrow");
+    await page.mouse.move(0, 0); // no hover highlight in the baseline
+    await verifyScreen(page, device, "loan-dialog", { scope: LOAN });
+  });
+
+  test("Player card shows the debt and the rate", async ({ page, device, table }) => {
+    await table.actor.showPlayers();
+    await expect(table.actor.panel("Anna").getByTestId("player-loan")).toHaveText(
+      "Kredit CHF 500 · 7 %",
+    );
+    await verifyScreen(page, device, "loan-player-card", { screenshot: false });
   });
 });
 

@@ -4,6 +4,7 @@ import { applyAction, legalActions, whoMustAct } from "../src/game.ts";
 import { groupTiles } from "../src/helpers.ts";
 import { LANGS, formatMessage } from "../src/i18n/index.ts";
 import { HISTORY_LENGTH, MAX_PRICE, SECURITY_SECTORS } from "../src/securities.ts";
+import { LOAN_RATE_CURVE, LOAN_STEP, loanDebt, loanLimit, loanRoom } from "../src/loans.ts";
 import { getTheme } from "../src/themes/index.ts";
 import { MAX_COUNTERS } from "../src/types.ts";
 import type { GameAction, GameState, PlayerId, TradeOffer } from "../src/types.ts";
@@ -88,6 +89,7 @@ export function assertInvariants(s: GameState, ctx: InvariantContext = {}): void
     check(s, p.missedTurns >= 0, `${p.id} missedTurns`);
   }
   assertSecuritiesInvariants(s);
+  assertLoanInvariants(s);
   check(s, Number.isInteger(s.freeParkingPot) && s.freeParkingPot >= 0, `pot ${s.freeParkingPot}`);
   if (!s.settings.freeParkingJackpot) {
     check(s, s.freeParkingPot === 0, "pot filled without jackpot setting");
@@ -394,6 +396,40 @@ export function assertInvariants(s: GameState, ctx: InvariantContext = {}): void
   check(s, s.round >= 1, "round < 1");
 }
 
+/** Show-off mode: debt only with the mode, never negative or above the limit, rates within bounds. */
+function assertLoanInvariants(s: GameState): void {
+  check(s, typeof s.settings.loans === "boolean", "loans setting");
+  for (const p of s.players) {
+    const loans = p.loans;
+    if (loans === undefined) {
+      continue;
+    }
+    check(s, s.settings.loans, `${p.id} has loans without the show-off mode`);
+    check(s, !p.bankrupt, `bankrupt ${p.id} still owes the bank`);
+    check(s, loans.length > 0, `${p.id} has an empty loan list`);
+    const rates = new Set<number>();
+    for (const t of loans) {
+      check(s, Number.isInteger(t.amount) && t.amount > 0, `${p.id} tranche amount ${t.amount}`);
+      check(s, t.amount % LOAN_STEP === 0, `${p.id} tranche not in steps: ${t.amount}`);
+      check(
+        s,
+        Number.isInteger(t.ratePct) &&
+          t.ratePct >= LOAN_RATE_CURVE.poorest &&
+          t.ratePct <= LOAN_RATE_CURVE.richest,
+        `${p.id} rate ${t.ratePct} out of bounds`,
+      );
+      check(s, !rates.has(t.ratePct), `${p.id} has two tranches at ${t.ratePct} %`);
+      rates.add(t.ratePct);
+    }
+    const debt = loanDebt(p);
+    check(s, debt > 0 && debt <= loanLimit(s), `${p.id} debt ${debt} above the limit`);
+  }
+  if (s.phase.type === "debt" && s.phase.loanInterest === true) {
+    check(s, s.phase.creditor === null, "interest is owed to the bank");
+    check(s, s.phase.auctionTile === undefined, "interest debt is not an auction debt");
+  }
+}
+
 /** Securities mode: the market exists exactly when the mode is on; prices, history and lots are sane. */
 function assertSecuritiesInvariants(s: GameState): void {
   check(s, (s.market !== undefined) === s.settings.securities, "market present iff securities on");
@@ -506,6 +542,22 @@ export function candidates(s: GameState, pid: PlayerId, type: GameAction["type"]
         { type, secId: h.secId, lot },
         { type, secId: h.secId, lot: "all" as const },
       ]);
+    case "take-loan": {
+      const room = loanRoom(s, me);
+      return [
+        { type, amount: LOAN_STEP },
+        { type, amount: Math.max(LOAN_STEP, room) },
+        { type, amount: room + LOAN_STEP },
+      ];
+    }
+    case "repay-loan": {
+      const debt = loanDebt(me);
+      return [
+        { type, amount: LOAN_STEP },
+        { type, amount: Math.max(LOAN_STEP, debt) },
+        { type, amount: debt + LOAN_STEP },
+      ];
+    }
     case "set-auto-bid": {
       const hb = s.phase.type === "auction" ? s.phase.auction.highestBid : 0;
       return [
@@ -625,6 +677,8 @@ const ALL_TYPES: GameAction["type"][] = [
   "unmortgage",
   "buy-securities",
   "sell-securities",
+  "take-loan",
+  "repay-loan",
   "propose-trade",
   "respond-trade",
   "counter-trade",
