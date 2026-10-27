@@ -636,3 +636,100 @@ describe("telemetry: writer lease", () => {
     });
   });
 });
+
+describe("telemetry: write self-test and write health (DESIGN #94)", () => {
+  /** A SQLite error as node:sqlite throws it, with a full path in the message (SQLite messages carry no user data). */
+  const sqliteError = (message: string, errcode: number): Error =>
+    Object.assign(new Error(message), { code: "ERR_SQLITE_ERROR", errcode, errstr: "x" });
+
+  it("sanitizes SQLite messages: every path is cut down to its basename, nothing else changes", async () => {
+    const { sanitizeDbMessage } = await import("../src/telemetry.ts");
+    expect(sanitizeDbMessage("attempt to write a readonly database")).toBe(
+      "attempt to write a readonly database",
+    );
+    expect(sanitizeDbMessage("disk I/O error")).toBe("disk I/O error");
+    expect(sanitizeDbMessage("unable to open database file: /data/v2/games.sqlite-journal")).toBe(
+      "unable to open database file: games.sqlite-journal",
+    );
+    expect(sanitizeDbMessage("cannot open '/mnt/share/data/games.sqlite' (C:\\x\\y\\z.db)")).toBe(
+      "cannot open 'games.sqlite' (z.db)",
+    );
+    expect(sanitizeDbMessage(`x ${"a".repeat(500)}`)).toHaveLength(200);
+    expect(sanitizeDbMessage("line\nbreak\u0007")).toBe("line break ");
+  });
+
+  it("a failed self-test logs the SQLite code, the extended code and the sanitized message, never a path", async () => {
+    const { MemoryLease, MemoryLeaseStore } = await import("../src/lease/memory.ts");
+    const before = otel.logs().length;
+    const noisy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const s = await startTestServer({
+      writerLease: new MemoryLease(new MemoryLeaseStore()),
+      waitUntilActive: false,
+      leaseRejoinDelayMs: 60_000,
+      dbWriteFault: () => {
+        throw sqliteError("unable to open database file: /data/v2/games.sqlite-journal", 14);
+      },
+    });
+    await waitFor(() =>
+      Promise.resolve(
+        otel
+          .logs()
+          .slice(before)
+          .some((r) => r.body === "writer activation failed"),
+      ),
+    );
+    noisy.mockRestore();
+    const records = otel.logs().slice(before);
+    const failed = records.find((r) => r.body === "writer write self-test failed");
+    expect(failed?.severityText).toBe("ERROR");
+    expect(failed?.attributes).toEqual({
+      "lease.kind": "memory",
+      "exception.type": "Error",
+      "error.code": "ERR_SQLITE_ERROR",
+      "db.response.status_code": "14",
+      "db.error.message": "unable to open database file: games.sqlite-journal",
+    });
+    const activation = records.find((r) => r.body === "writer activation failed");
+    expect(activation?.attributes["lease.retry_ms"]).toBe(120_000);
+    const dumped = JSON.stringify(records.map((r) => [r.body, r.attributes]));
+    expect(dumped).not.toContain("/data");
+    expect(dumped).not.toContain(s.dir);
+    await s.dispose();
+  });
+
+  it("failing writes while active log one error record with the count, and the recovery an info record", async () => {
+    const { recordWriteHealth } = await import("../src/telemetry.ts");
+    const before = otel.logs().length;
+    recordWriteHealth("azure-blob", {
+      healthy: false,
+      failures: 3,
+      error: sqliteError("attempt to write a readonly database", 1544),
+    });
+    recordWriteHealth("azure-blob", { healthy: true, failures: 0 });
+    const [down, up] = otel.logs().slice(before);
+    expect(down?.severityText).toBe("ERROR");
+    expect(down?.body).toBe("database writes failing, not ready");
+    expect(down?.attributes).toMatchObject({
+      "lease.kind": "azure-blob",
+      "db.write.failures": 3,
+      "error.code": "ERR_SQLITE_ERROR",
+      "db.response.status_code": "1544",
+      "db.error.message": "attempt to write a readonly database",
+    });
+    expect(up?.severityText).toBe("INFO");
+    expect(up?.body).toBe("database writes work again");
+  });
+
+  it("other errors keep their message out of the logs (only SQLite errors get the sanitized message)", async () => {
+    const { recordWriteHealth } = await import("../src/telemetry.ts");
+    const before = otel.logs().length;
+    recordWriteHealth("file", {
+      healthy: false,
+      failures: 3,
+      error: new Error("secret-ish detail /home/someone/x"),
+    });
+    const [r] = otel.logs().slice(before);
+    expect(JSON.stringify(r?.attributes)).not.toMatch(/secret-ish|someone/);
+    expect(r?.attributes["db.error.message"]).toBeUndefined();
+  });
+});

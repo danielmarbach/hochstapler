@@ -174,9 +174,11 @@ changes (new endpoints, headers, tokens): [AGENTS.md](AGENTS.md).
   Client addresses are only in-memory keys, never logged or exported.
 - **Game ids are spectator links** (#62): anyone who knows a game id can watch (not act or chat). Telemetry only carries a
   salted hash of it.
-- **Azure storage** (#63, #92): no account keys any more: the share is mounted with the environment's managed identity
-  and shared-key access is off (Entra ID only). Public network access stays on (accepted residual risk: only Entra tokens with
-  a data role get in; a VNet would mean recreating the environment, domain and certificate).
+- **Azure storage** (#63, #92, #94): the share is mounted with the account key again (shared-key access on) since the
+  managed-identity mount of #92 could read but not write live; that mount stays available as an opt-in
+  (`AZ_SHARE_AUTH=identity`) until the write failure is understood. The key is only read at deployment time for the storage
+  definition, never output or logged. Public network access stays on (accepted residual risk; a VNet would mean recreating
+  the environment, domain and certificate).
 - **Log Analytics / Application Insights** (#64, #92): the environment sends its logs through a diagnostic setting (no
   workspace key); Application Insights keeps key-based ingestion for the OpenTelemetry agent; junk telemetry is capped by the
   daily cap.
@@ -273,7 +275,8 @@ docker inspect --format '{{.State.Health.Status}}' $(docker compose ps -q hochst
 ## Azure Container Apps
 
 Hosting on Azure with the default HTTPS domain (`https://hochstapler.<env>.switzerlandnorth.azurecontainerapps.io`), entirely in
-Bicep (`infra/main.bicep`). Decisions: #50 to #52, #89 and #92 (no storage keys) in [docs/DESIGN.md](docs/DESIGN.md).
+Bicep (`infra/main.bicep`). Decisions: #50 to #52, #89, #91, #92 (managed-identity mount, now opt-in) and #94 (account key
+by default, ready means "can write") in [docs/DESIGN.md](docs/DESIGN.md).
 
 **Prerequisites:** Azure CLI (`az login`), access to the subscription and the existing resource group `Hochstapler`
 (it is not created). Copy `.env.azure.example` to `.env.azure` once (listed in `.gitignore`) and enter the
@@ -303,39 +306,48 @@ lease on `leases/writer.lease`, renewed every 3 s, 15 s duration) opens the file
 2. the script shifts **100 % traffic** to it and sends one `GET /` to its revision FQDN: its first real request asks the
    running revision to hand over (Break Lease, 15 s);
 3. the old revision drains (stops accepting actions, persists every game, pauses timers, closes the database), releases
-   the lease and sends its players away with WebSocket code 4503; the new one takes the lease and becomes **ready**
-   (`/api/ready` = 200 only while holding the lease); the script logs how long that took;
+   the lease and sends its players away with WebSocket code 4503; the new one takes the lease, runs a **write self-test**
+   (one real write to the database, DESIGN #94) and only then becomes **ready** (`/api/ready` = 200 only while holding the
+   lease and while writes work); the script logs how long that took;
 4. the script deactivates the old revision, 5. checks that exactly one revision and replica is left.
 
 Players see the "reconnecting" notice for the handover itself (a few seconds), no error page (DESIGN #91). If the new
 revision does not come up in standby, it is deactivated and the traffic never moves ("rollout failed, previous revision
-kept"). If it does not hold the lease within `HANDOVER_TIMEOUT_SEC` (default 240) and the old revision is ready again (now
-or within `ROLLBACK_WAIT_SEC`, default 60), the traffic goes back to the old one, the new one is deactivated and the script
-fails with "rollout failed, previous revision kept"; otherwise it falls back to stopping the old revision first and reports
-`handover: fallback`. A running revision from before the writer lease (#89) is stopped first (it does not know the lease).
+kept"). A new revision that takes the lease but cannot write (failed self-test) closes the database, gives the lease back
+and steps aside for twice the rejoin delay; the old revision takes the lease back after its rejoin delay (30 s) and serves
+again. The script sees the old revision answer 503 and then 200 again and rolls back at once: the traffic goes back, the new
+revision is deactivated and the script fails with "rollout failed, previous revision kept". If the new revision does not hold
+the lease within `HANDOVER_TIMEOUT_SEC` (default 240) and the old revision is ready again (now or within
+`ROLLBACK_WAIT_SEC`, default 60), the same rollback; otherwise it falls back to stopping the old revision first and reports
+`handover: fallback` (keep `HANDOVER_TIMEOUT_SEC + ROLLBACK_WAIT_SEC` above the 30 s rejoin delay; the script warns
+otherwise). While a revision serves, three failed database writes in a row turn its `/api/ready` to 503 (`writes:
+"failing"`, error log `database writes failing, not ready`); it keeps the lease, nothing hands over automatically. A running revision from before the writer lease (#89) is stopped first (it does not know the lease).
 So **never deploy the Bicep without the script**, and never open the database without holding the lease.
 
-**No storage keys (DESIGN #92):** the Container Apps environment mounts the share with its managed identity
-(`id-hochstapler-pull`, the same one the app uses for the registry and the lease; role "Storage File Data SMB MI Admin" on the
-storage account, SMB OAuth + Kerberos; this mount mode is a **preview** of Container Apps), and the storage account has
-**shared-key access off**: there is no account key or SAS that works. The switch from the old key-based mount runs in two
-stages, chosen by the script itself:
+**Share authentication (`AZ_SHARE_AUTH`, DESIGN #92, #94):**
 
-1. **Stage 1** (first run after the change): an active revision still mounts through the old key-based storage definition
-   `hochstapler-data`, so the script keeps shared-key access on. The new revision mounts `hochstapler-data-mi` with the
-   identity and takes over with the normal blue/green handover. The script ends with "shared-key removal: stage 1 done".
-   If the new revision cannot mount the share (e.g. the role assignment has not propagated yet, which can take up to about
-   10 minutes), it never comes up in standby, the script deactivates it and the old revision keeps serving: wait and run again.
-2. **Stage 2** (the next run, e.g. `npm run deploy:azure -- --skip-build`): nothing active mounts with the key any more, so
-   the script deploys with shared-key access off (and SMB NTLMv2 off, Kerberos only) and removes the old storage definition.
+- **`key` (default):** the environment mounts the share through the key-based storage definition `hochstapler-data` (the
+  account key is read at deployment time for that definition only), shared-key access and SMB NTLMv2 are on. The script
+  runs no stage logic and never removes a storage definition. This is how every revision up to 19 mounted the share, so a
+  rollout leaves a running key-mount revision untouched.
+- **`identity` (opt-in, preview):** the environment mounts the share with its managed identity (`id-hochstapler-pull`, the
+  same one the app uses for the registry and the lease; role "Storage File Data SMB MI Admin" on the storage account, SMB
+  OAuth + Kerberos) through the definition `hochstapler-data-mi`. **On 2026-10-27 this mount could read the database but
+  every write failed** (DESIGN #94); it stays available for the investigation only. Set `AZ_SHARE_AUTH=identity` for a
+  single run (not in `.env.azure`) and watch the logs (`writer write self-test failed` carries the SQLite code and a
+  sanitized message). The switch off the key then runs in two stages, chosen by the script: **stage 1** (an active revision
+  still mounts `hochstapler-data`): shared-key access stays on, the new revision mounts with the identity and takes over (it
+  only becomes ready if its write self-test passes, otherwise the old one takes the lease back and the script rolls back);
+  **stage 2** (the next identity run, nothing active mounts with the key): shared-key access off (Kerberos only) and
+  `hochstapler-data` is removed. `AZ_ALLOW_SHARED_KEY=1` keeps the key on in identity mode.
 
-Rollback: `AZ_ALLOW_SHARED_KEY=1 npm run deploy:azure -- --skip-build` turns shared-key access back on (for a one-off
-emergency only; do not put it in `.env.azure`). An old revision from before the change mounts `hochstapler-data` with the key
-and can only be reactivated while that definition exists and the key is allowed.
+The environment identity, SMB OAuth and the role assignment stay deployed in both modes (harmless with the key mount).
+Going back from an identity revision is a normal `key` run: the new revision mounts `hochstapler-data` again (the
+definition is re-created if stage 2 removed it).
 
 **What gets created** (everything in the resource group, names from `uniqueString`): Container Registry Basic (no admin user,
 pull via managed identity), Storage Account Standard LRS with Azure Files share `data` (mount `/data`, `nobrl`,
-`uid/gid 1000`, soft delete 14 days; shared-key access off, mounted with the environment's managed identity), Log Analytics
+`uid/gid 1000`, soft delete 14 days; mounted with the account key by default, see above), Log Analytics
 (30 days, daily cap 0.1 GB; the environment's console and system logs arrive through a diagnostic setting, not with the
 workspace key), Container Apps Environment (with the user-assigned identity), the app
 (1 replica, 0.5 vCPU / 1 GiB, startup/liveness probes on `/api/themes`, readiness on `/api/live` (both answer in standby),
@@ -393,9 +405,10 @@ az storage file upload   --account-name $ACC --share-name data --source ./games.
 az containerapp revision activate -g Hochstapler -n hochstapler --revision <revision>
 ```
 
-(Shared-key access is off (#92), so only Entra ID works: `--auth-mode login` needs the role "Storage File Data Privileged
-Contributor" for your account and `--enable-file-backup-request-intent`; the portal's file browser needs the same role and
-"Microsoft Entra user account" as authentication method. Azure Backup for Azure Files is not used: it needs shared-key access.) Back up the old file before
+(Use Entra ID even though the key works again in key mode (#94); in identity mode, stage 2, it is the only way:
+`--auth-mode login` needs the role "Storage File Data Privileged Contributor" for your account and
+`--enable-file-backup-request-intent`; the portal's file browser needs the same role and "Microsoft Entra user account" as
+authentication method. Azure Backup for Azure Files is not configured.) Back up the old file before
 restoring; deactivate **every** active revision first (a standby revision would take the lease over and open the file).
 
 **Cleaning up:** The resource group stays; only the created resources are deleted:

@@ -17,6 +17,9 @@
 //              `rejoinDelayMs` first so it never races a live newcomer for the lease it just released.
 // - lost:      a renewal that is not a handover request (or no answer before the deadline): fence() at once
 //              (no more writes, database closed without persisting), clients reconnect, then try again.
+// - activation failed: the lease is given back at once and the process waits, doubling the pause per failure in a row.
+//              A failed write self-test (DESIGN #94) steps aside: the first pause is 2 x the rejoin delay, so a former
+//              holder that just handed over (and rejoins after one) takes the lease back and keeps serving.
 import { attempt } from "@poly/engine";
 import { AbortedError, sleep } from "./types.ts";
 import type { LeaseTiming, RenewResult, WriterLease } from "./types.ts";
@@ -44,15 +47,23 @@ export type LeaseEvent =
   | { type: "handover-triggered" }
   | { type: "handover-completed"; drainMs: number }
   | { type: "lost" }
-  | { type: "activate-failed"; error: Error };
+  /** `retryInMs`: how long this process waits before it competes for the lease again */
+  | { type: "activate-failed"; error: Error; retryInMs: number };
 
 export interface CoordinatorOptions {
   /** monotonic milliseconds (default performance.now) */
   clock?: () => number;
   /** a former holder waits this long before it competes again (default 2 x lease duration) */
   rejoinDelayMs?: number;
-  /** pause after a failed activation or a lost lease before the next attempt (default 1 s) */
+  /** pause after a lost lease, and the first pause after a failed activation (default 1 s; doubles per failure in a row) */
   retryDelayMs?: number;
+  /** longest pause between failed activations (default 5 min; never shorter than the first pause) */
+  maxRetryDelayMs?: number;
+  /**
+   * activation errors after which this process steps aside (DESIGN #94: the write self-test failed): it waits 2 x the
+   * rejoin delay (doubling per failure in a row), so a former holder that just handed over takes the lease back first
+   */
+  stepAside?: (e: Error) => boolean;
   onEvent?: (e: LeaseEvent) => void;
   /** activation errors that must end the process instead of being retried (a failed schema migration) */
   isFatal?: (e: Error) => boolean;
@@ -83,6 +94,10 @@ export class WriterCoordinator {
   private readonly clock: () => number;
   private readonly rejoinDelayMs: number;
   private readonly retryDelayMs: number;
+  private readonly maxRetryDelayMs: number;
+  private readonly stepAside: (e: Error) => boolean;
+  /** failed activations in a row (backoff) */
+  private activateFailures = 0;
   private readonly onEvent: (e: LeaseEvent) => void;
   private readonly isFatal: (e: Error) => boolean;
   private waiters: { ok: () => void; fail: (e: Error) => void }[] = [];
@@ -116,6 +131,8 @@ export class WriterCoordinator {
     this.clock = opts.clock ?? (() => performance.now());
     this.rejoinDelayMs = opts.rejoinDelayMs ?? 2 * lease.timing.durationMs;
     this.retryDelayMs = opts.retryDelayMs ?? 1000;
+    this.maxRetryDelayMs = opts.maxRetryDelayMs ?? 5 * 60_000;
+    this.stepAside = opts.stepAside ?? (() => false);
     this.onEvent = opts.onEvent ?? (() => undefined);
     this.isFatal = opts.isFatal ?? (() => false);
   }
@@ -312,7 +329,8 @@ export class WriterCoordinator {
       this.setState("active");
       const activated = await attempt("lease:activate", () => this.hooks.activate());
       if (!activated.ok) {
-        this.onEvent({ type: "activate-failed", error: activated.error });
+        wait = this.activationBackoff(activated.error);
+        this.onEvent({ type: "activate-failed", error: activated.error, retryInMs: wait });
         this.setValidUntil(-Infinity);
         await this.lease.release();
         this.setState("standby");
@@ -321,14 +339,22 @@ export class WriterCoordinator {
           this.settleWaiters(activated.error);
           return;
         }
-        wait = this.retryDelayMs;
         continue;
       }
+      this.activateFailures = 0;
       this.onEvent({ type: "acquired", waitedMs: this.clock() - t0 });
       const outcome = await this.hold();
       if (this.crashed) return;
       wait = await this.leave(outcome);
     }
+  }
+
+  /** Pause after a failed activation: doubles per failure in a row, capped; a step-aside starts at 2 x rejoin delay. */
+  private activationBackoff(error: Error): number {
+    this.activateFailures++;
+    const first = this.stepAside(error) ? 2 * this.rejoinDelayMs : this.retryDelayMs;
+    const grown = first * 2 ** Math.min(this.activateFailures - 1, 20);
+    return Math.max(first, Math.min(this.maxRetryDelayMs, grown));
   }
 
   /** Renew until something ends the tenure. */

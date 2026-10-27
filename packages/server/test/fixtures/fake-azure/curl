@@ -4,6 +4,11 @@
 #   /api/live   200 for an active revision (FAKE_LIVE=never: the new revision never comes up in standby)
 #   /           a real request: the revision takes the lease over (FAKE_HANDOVER=stuck: it never does)
 #   /api/ready  200 only for the holder (FAKE_OLD_READY=never: app--r1 never answers 200, so no rollback is possible)
+# FAKE_HANDOVER=selftest-fails (DESIGN #94): the trigger makes app--r1 hand over, but the new revision fails its write
+# self-test and gives the lease back: nobody holds it; app--r1 rejoins and answers /api/ready 200 from its
+# (FAKE_REJOIN_POLLS + 1)-th poll on (FAKE_REJOIN_POLLS=never: it never does).
+# FAKE_HANDOVER=slow: the new revision holds the lease from its 3rd /api/ready poll on; FAKE_OLD_FLAKY=1: the first
+# /api/ready poll of app--r1 times out (000).
 set -euo pipefail
 S="$FAKE_AZ_STATE"
 url="${*: -1}"
@@ -14,7 +19,15 @@ path="/${host#*/}"
 host="${host%%/*}"
 active() { awk -v r="$1" '$1 == r && $2 == "true"' "$S/revisions" | grep -q .; }
 holder() {
+  if [ "$(cat "$S/holder" 2> /dev/null)" = "none" ]; then echo none; return 0; fi
   if [ -s "$S/holder" ] && active "$(cat "$S/holder")"; then cat "$S/holder"; else awk '$2 == "true" { print $1; exit }' "$S/revisions"; fi
+}
+rejoin_poll() { # app--r1 polled while nobody holds the lease: it takes it back after FAKE_REJOIN_POLLS polls
+  local n
+  [ "${FAKE_REJOIN_POLLS:-never}" != "never" ] || return 0
+  n=$(($(cat "$S/rejoin" 2> /dev/null || echo 0) + 1))
+  echo "$n" > "$S/rejoin"
+  [ "$n" -le "$FAKE_REJOIN_POLLS" ] || echo app--r1 > "$S/holder"
 }
 case "$host" in
   app.fake.test) printf 200 ;;
@@ -24,9 +37,24 @@ case "$host" in
       /api/live)
         if active "$rev" && { [ "${FAKE_LIVE:-always}" != "never" ] || [ "$rev" = "app--r1" ]; }; then printf 200; else printf 503; fi ;;
       /)
-        [ "${FAKE_HANDOVER:-ok}" = "stuck" ] || echo "$rev" > "$S/holder"
+        case "${FAKE_HANDOVER:-ok}" in
+          stuck | slow) ;;
+          selftest-fails) [ "$rev" = "app--r1" ] || echo none > "$S/holder" ;;
+          *) echo "$rev" > "$S/holder" ;;
+        esac
         printf 200 ;;
       /api/ready)
+        if [ "$(holder)" = "none" ] && [ "$rev" = "app--r1" ] && active "$rev"; then rejoin_poll; fi
+        if [ "${FAKE_OLD_FLAKY:-}" = "1" ] && [ "$rev" = "app--r1" ] && [ ! -e "$S/flaked" ]; then
+          touch "$S/flaked"
+          printf 000
+          exit 0
+        fi
+        if [ "${FAKE_HANDOVER:-}" = "slow" ] && [ "$rev" != "app--r1" ]; then
+          n=$(($(cat "$S/slow" 2> /dev/null || echo 0) + 1))
+          echo "$n" > "$S/slow"
+          [ "$n" -lt 3 ] || echo "$rev" > "$S/holder"
+        fi
         if [ "$(holder)" = "$rev" ] && ! { [ "${FAKE_OLD_READY:-}" = "never" ] && [ "$rev" = "app--r1" ]; }; then printf 200; else printf 503; fi ;;
       *) printf 200 ;;
     esac ;;

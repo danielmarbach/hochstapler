@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -64,9 +65,11 @@ describe("scripts/azure-deploy.sh (fake az)", () => {
       },
     });
     const read = (f: string) =>
-      readFileSync(join(dir, "state", f), "utf8")
-        .split("\n")
-        .filter(Boolean);
+      existsSync(join(dir, "state", f))
+        ? readFileSync(join(dir, "state", f), "utf8")
+            .split("\n")
+            .filter(Boolean)
+        : [];
     return {
       status: r.status,
       out: r.stdout,
@@ -157,6 +160,76 @@ describe("scripts/azure-deploy.sh (fake az)", () => {
     expect(r.out).not.toContain("handover: fallback");
   });
 
+  // DESIGN #94: the new revision takes the lease but fails its write self-test, gives the lease back and steps aside; the
+  // old one drained and rejoins after its rejoin delay (2 x lease duration), so it is ready again a little later.
+  const rolledBack = (r: Run) => {
+    expect(r.status).not.toBe(0);
+    expect(r.err).toContain("rollout failed, previous revision kept");
+    const forward = index(r.calls, /ingress traffic set .*app--r2=100/);
+    const back = index(r.calls, /ingress traffic set .*app--r1=100/);
+    const stopNew = index(r.calls, /revision deactivate .*--revision app--r2/);
+    expect(forward).toBeGreaterThan(-1);
+    expect(back).toBeGreaterThan(forward);
+    expect(stopNew).toBeGreaterThan(back);
+    expect(index(r.calls, /revision deactivate .*--revision app--r1/)).toBe(-1);
+    expect(r.revisions.filter((l) => l.includes(" true "))).toEqual([
+      expect.stringMatching(/^app--r1 true/),
+    ]);
+    expect(r.out).not.toContain("handover: fallback");
+  };
+
+  it("new revision never ready (write self-test), old one ready again after its rejoin delay: traffic back, new one off", () => {
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob`], ["--skip-build"], {
+      FAKE_HANDOVER: "selftest-fails",
+      FAKE_REJOIN_POLLS: "1",
+    });
+    rolledBack(r);
+    // the old revision was seen without the lease first (it drained), then with it again
+    const oldReady = r.calls.filter((c) =>
+      /curl https:\/\/app--r1\.fake\.test\/api\/ready$/.test(c),
+    );
+    expect(oldReady.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("rolls back as soon as the old revision holds the lease again, without waiting for the handover timeout", () => {
+    const started = Date.now();
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob`], ["--skip-build"], {
+      FAKE_HANDOVER: "selftest-fails",
+      FAKE_REJOIN_POLLS: "1",
+      HANDOVER_TIMEOUT_SEC: "120",
+    });
+    rolledBack(r);
+    expect(r.out).toMatch(/app--r1 took the writer lease back/);
+    expect(r.err).not.toContain("did not take the writer lease over within");
+    expect(Date.now() - started).toBeLessThan(30_000);
+  });
+
+  it("a timed-out poll of the old revision is no sign of a handover: a slow handover still completes", () => {
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob`], ["--skip-build"], {
+      FAKE_HANDOVER: "slow",
+      FAKE_OLD_FLAKY: "1",
+      HANDOVER_TIMEOUT_SEC: "30",
+    });
+    expect(r.err).not.toMatch(/ERROR/);
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("handover: blue-green");
+    expect(index(r.calls, /ingress traffic set .*app--r1=100/)).toBe(-1);
+  });
+
+  it("warns when the handover and rollback waits together cannot cover the old revision's rejoin delay", () => {
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob`], ["--skip-build"], {
+      HANDOVER_TIMEOUT_SEC: "3",
+      ROLLBACK_WAIT_SEC: "3",
+    });
+    expect(r.status).toBe(0);
+    expect(r.err).toMatch(/HANDOVER_TIMEOUT_SEC \+ ROLLBACK_WAIT_SEC .* rejoin delay/);
+    const quiet = run([`app--r1 true ${OLD_IMAGE} azure-blob`], ["--skip-build"], {
+      HANDOVER_TIMEOUT_SEC: "3",
+      ROLLBACK_WAIT_SEC: "60",
+    });
+    expect(quiet.err).not.toMatch(/rejoin delay/);
+  });
+
   it("falls back to stopping the old revision when neither the new nor the old one is ready, and says so", () => {
     const r = run([`app--r1 true ${OLD_IMAGE} azure-blob`], ["--skip-build"], {
       FAKE_HANDOVER: "stuck",
@@ -183,20 +256,75 @@ describe("scripts/azure-deploy.sh (fake az)", () => {
     expect(r.revisions).toEqual([`app--r1 true ${OLD_IMAGE} azure-blob`]);
   });
 
-  // DESIGN #92: the share is mounted with the environment's managed identity; shared-key access goes off only once no
-  // active revision still mounts the share through the old key-based storage definition.
+  // DESIGN #94: the share is mounted with the account key by default (storage definition hochstapler-data); the
+  // managed-identity mount of DESIGN #92 and its two-stage shared-key removal run only with AZ_SHARE_AUTH=identity.
   const KEY_MOUNT = "hochstapler-data";
   const MI_MOUNT = "hochstapler-data-mi";
   const deployments = (calls: string[]) => calls.filter((c) => /deployment group create/.test(c));
+  const IDENTITY = { AZ_SHARE_AUTH: "identity" };
 
-  it("key removal stage 1: while an active revision mounts with the key, every deployment keeps shared-key access on", () => {
-    writeFileSync(join(dir, "state/envstorages"), `${KEY_MOUNT}\n`);
+  it("key mode (default): the new revision mounts the key-based definition, no stage logic, nothing removed", () => {
+    writeFileSync(join(dir, "state/envstorages"), `${KEY_MOUNT}\n${MI_MOUNT}\n`);
     const r = run([`app--r1 true ${OLD_IMAGE} azure-blob ${KEY_MOUNT}`], ["--skip-build"]);
     expect(r.err).not.toMatch(/ERROR/);
     expect(r.status).toBe(0);
     const deploys = deployments(r.calls);
     expect(deploys.length).toBeGreaterThan(1);
-    for (const d of deploys) expect(d).toContain("allowSharedKeyAccess=true");
+    for (const d of deploys) {
+      expect(d).toContain("shareAuth=key");
+      expect(d).not.toContain("allowSharedKeyAccess");
+    }
+    // no stage logic: the mounts of the running revisions are not even looked at, and no definition is removed
+    expect(index(r.calls, /storageName/)).toBe(-1);
+    expect(index(r.calls, /containerapp env storage (list|remove)/)).toBe(-1);
+    expect(r.out + r.err).not.toMatch(/shared-key removal|stage 1|stage 2/);
+    expect(readFileSync(join(dir, "state/envstorages"), "utf8").trim().split("\n")).toEqual([
+      KEY_MOUNT,
+      MI_MOUNT,
+    ]);
+    expect(r.revisions.filter((l) => l.includes(" true "))).toEqual([
+      expect.stringMatching(new RegExp(`^app--r2 true .* ${KEY_MOUNT}$`)),
+    ]);
+    expect(r.out).toContain("share auth: key");
+  });
+
+  it("key mode is also the way back from a managed-identity revision (it just mounts the key definition again)", () => {
+    writeFileSync(join(dir, "state/envstorages"), `${KEY_MOUNT}\n${MI_MOUNT}\n`);
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob ${MI_MOUNT}`], ["--skip-build"], {
+      AZ_SHARE_AUTH: "key",
+    });
+    expect(r.status).toBe(0);
+    for (const d of deployments(r.calls)) expect(d).toContain("shareAuth=key");
+    expect(index(r.calls, /containerapp env storage remove/)).toBe(-1);
+    expect(r.revisions.filter((l) => l.includes(" true "))).toEqual([
+      expect.stringMatching(new RegExp(`^app--r2 true .* ${KEY_MOUNT}$`)),
+    ]);
+  });
+
+  it("refuses an unknown AZ_SHARE_AUTH before touching Azure", () => {
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob ${KEY_MOUNT}`], ["--skip-build"], {
+      AZ_SHARE_AUTH: "sas",
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.err).toContain("AZ_SHARE_AUTH");
+    expect(deployments(r.calls)).toEqual([]);
+  });
+
+  it("identity, stage 1: while an active revision mounts with the key, every deployment keeps shared-key access on", () => {
+    writeFileSync(join(dir, "state/envstorages"), `${KEY_MOUNT}\n`);
+    const r = run(
+      [`app--r1 true ${OLD_IMAGE} azure-blob ${KEY_MOUNT}`],
+      ["--skip-build"],
+      IDENTITY,
+    );
+    expect(r.err).not.toMatch(/ERROR/);
+    expect(r.status).toBe(0);
+    const deploys = deployments(r.calls);
+    expect(deploys.length).toBeGreaterThan(1);
+    for (const d of deploys) {
+      expect(d).toContain("shareAuth=identity");
+      expect(d).toContain("allowSharedKeyAccess=true");
+    }
     // blue/green as always: the new revision (managed-identity mount) takes over, then the old one stops
     expect(r.revisions.filter((l) => l.includes(" true "))).toEqual([
       expect.stringMatching(new RegExp(`^app--r2 true .* ${MI_MOUNT}$`)),
@@ -207,9 +335,9 @@ describe("scripts/azure-deploy.sh (fake az)", () => {
     expect(r.out).toMatch(/run the script again/i);
   });
 
-  it("key removal stage 2: no active key mount -> shared-key access off, then the old storage definition is removed", () => {
+  it("identity, stage 2: no active key mount -> shared-key access off, then the old storage definition is removed", () => {
     writeFileSync(join(dir, "state/envstorages"), `${KEY_MOUNT}\n${MI_MOUNT}\n`);
-    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob ${MI_MOUNT}`], ["--skip-build"]);
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob ${MI_MOUNT}`], ["--skip-build"], IDENTITY);
     expect(r.err).not.toMatch(/ERROR/);
     expect(r.status).toBe(0);
     const deploys = deployments(r.calls);
@@ -223,16 +351,17 @@ describe("scripts/azure-deploy.sh (fake az)", () => {
     expect(readFileSync(join(dir, "state/envstorages"), "utf8").trim()).toBe(MI_MOUNT);
   });
 
-  it("removes nothing when the old storage definition is already gone", () => {
+  it("identity: removes nothing when the old storage definition is already gone", () => {
     writeFileSync(join(dir, "state/envstorages"), `${MI_MOUNT}\n`);
-    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob ${MI_MOUNT}`], ["--skip-build"]);
+    const r = run([`app--r1 true ${OLD_IMAGE} azure-blob ${MI_MOUNT}`], ["--skip-build"], IDENTITY);
     expect(r.status).toBe(0);
     expect(index(r.calls, /containerapp env storage remove/)).toBe(-1);
   });
 
-  it("AZ_ALLOW_SHARED_KEY=1 keeps shared-key access on (rollback lever) and removes nothing", () => {
+  it("identity: AZ_ALLOW_SHARED_KEY=1 keeps shared-key access on and removes nothing", () => {
     writeFileSync(join(dir, "state/envstorages"), `${KEY_MOUNT}\n${MI_MOUNT}\n`);
     const r = run([`app--r1 true ${OLD_IMAGE} azure-blob ${MI_MOUNT}`], ["--skip-build"], {
+      ...IDENTITY,
       AZ_ALLOW_SHARED_KEY: "1",
     });
     expect(r.status).toBe(0);

@@ -79,17 +79,23 @@ Principle: **deny by default, allow only what the game really needs.** Every loo
   renewal or past (last renewal + duration - safety margin). No Single revision mode, no second replica per revision.
 - The `file` lease is for local disks only (dev, LAN compose, e2e), never for an SMB/NFS share; `WRITER_LEASE=none` only for
   one in-process instance (tests). New lease backends implement `WriterLease` and keep provider code in their own module.
-- `/api/ready` = holds the lease (deploy script only). The platform probes must pass in standby: readiness on `/api/live`,
+- `/api/ready` = holds the lease **and can write** (deploy script only): a new writer runs the write self-test (one real
+  write through the fenced `Db` path) before it serves, and 3 failed writes in a row turn readiness off (DESIGN #94).
+  Never report ready before that write. The platform probes must pass in standby: readiness on `/api/live`,
   liveness/startup on `/api/themes` (DESIGN #91). Azure runs `WRITER_LEASE_HANDOVER=on-traffic`: the script shifts the
   traffic to the new revision before the handover; only a process that never held the lease may break it, health
   probes (`kube-probe/`) and `/api/ready` / `/api/live` never trigger it.
 - Exactly 1 replica (min=max=1), ingress `allowInsecure: false`, never set `POLY_TEST_MODE`, no secrets in outputs or script output,
   ACR admin user stays off (pull via managed identity).
-- **No account keys (DESIGN #92):** `allowSharedKeyAccess` stays false (only the script's migration stage or the one-off
-  `AZ_ALLOW_SHARED_KEY=1` rollback may turn it on); the share is mounted with the environment's managed identity
-  (`azureFile.identity`, preview API), never with `accountKey`; no `listKeys()`, SAS, connection strings or `--account-key`
-  anywhere (Bicep, script, docs); data-plane access is Entra ID (`--auth-mode login`) with a data role. Environment logs go
-  through diagnostic settings (console + system only, never `ContainerAppHTTPLogs`), not the workspace key.
+- **Share authentication (DESIGN #92, relaxed by #94):** the share is mounted with the **account key by default**
+  (`shareAuth='key'`, storage definition `hochstapler-data`, shared-key access and NTLMv2 on), because the managed-identity
+  mount of #92 could read but not write live (#94). The key is read with `listKeys()` in exactly one place (that storage
+  definition, at deployment time) and is never an output, never in the script, docs or logs. The managed-identity mount
+  (`AZ_SHARE_AUTH=identity`, `hochstapler-data-mi`, preview API) stays opt-in until the write failure is understood; only in
+  identity mode may the script turn shared-key access off and remove `hochstapler-data`, never in key mode. No SAS,
+  connection strings or `--account-key` anywhere; operators' data-plane access is Entra ID (`--auth-mode login`) with a data
+  role. Environment logs go through diagnostic settings (console + system only, never `ContainerAppHTTPLogs`), not the
+  workspace key.
 - Custom domain (DESIGN #53) is optional config (`AZ_CUSTOM_DOMAIN`, never in the repo); stages `hostname` -> `certificate` -> `bind` live in the
   script, and every domain step must leave exactly one active revision / replica (`assert_single_revision`).
 

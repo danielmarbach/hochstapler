@@ -3,7 +3,8 @@
 # State in $FAKE_AZ_STATE: revisions (one per line: name active image writer_lease [storage_name]), calls.log,
 # envstorages (storage definitions of the environment, one name per line).
 # FAKE_NEW_LEASE: WRITER_LEASE of revisions created by a deployment (default azure-blob).
-# New revisions mount the managed-identity storage definition hochstapler-data-mi (DESIGN #92).
+# New revisions mount the storage definition of the deployment's shareAuth: hochstapler-data (key, DESIGN #94) or
+# hochstapler-data-mi (identity, DESIGN #92).
 set -euo pipefail
 S="$FAKE_AZ_STATE"
 REVS="$S/revisions"
@@ -34,10 +35,12 @@ case "$args" in
   *" deployment group create "*)
     deploy_app="$(param deployApp "$@")"
     image="$(param image "$@")"
+    storage=hochstapler-data
+    [ "$(param shareAuth "$@")" = "identity" ] && storage=hochstapler-data-mi
     if [ "$deploy_app" = "true" ]; then
       if [ ! -s "$REVS" ] || [ "$(field "$(latest)" 3)" != "$image" ]; then
         n=$(($(wc -l < "$REVS") + 1))
-        echo "app--r$n true $image ${FAKE_NEW_LEASE-azure-blob} hochstapler-data-mi" >> "$REVS"
+        echo "app--r$n true $image ${FAKE_NEW_LEASE-azure-blob} $storage" >> "$REVS"
       fi
     fi ;;
   *" acr list "*) echo crhochstaplerfake ;;

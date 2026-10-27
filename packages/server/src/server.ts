@@ -1,7 +1,8 @@
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { SpanKind, SpanStatusCode, context, trace } from "@opentelemetry/api";
-import { randomBytes, randomInt } from "node:crypto";
+import { randomBytes, randomInt, randomUUID } from "node:crypto";
+import { hostname } from "node:os";
 import { createReadStream, mkdirSync, realpathSync, statSync } from "node:fs";
 import { pipeline } from "node:stream";
 import { extname, join, normalize, relative, resolve, sep } from "node:path";
@@ -46,7 +47,7 @@ import { ConnectionCounter, KeyedLimiter, loadLimits } from "./limits.ts";
 import { PowService, loadPowConfig } from "./pow.ts";
 import type { PowConfig, PowFailure } from "./pow.ts";
 import type { LimitsConfig, Take } from "./limits.ts";
-import { Db, loadJournalMode } from "./db.ts";
+import { Db, WriteCheckError, loadJournalMode } from "./db.ts";
 import { loadRetention } from "./retention.ts";
 import type { RetentionConfig } from "./retention.ts";
 import { MigrationError } from "./migrations/schema.ts";
@@ -67,6 +68,8 @@ import {
   powSolutions,
   recordLeaseEvent,
   recordLeaseIssue,
+  recordWriteCheckFailed,
+  recordWriteHealth,
   tracer,
   wsConnections,
   wsOriginRejected,
@@ -147,6 +150,8 @@ export interface ServerOptions {
   leaseRetryDelayMs?: number;
   /** TESTS ONLY: observe when the database is opened and closed and every write */
   writerProbe?: { opened(): void; closed(): void; wrote(): void };
+  /** TESTS ONLY: runs inside every database write; throwing simulates a mount that refuses writes (DESIGN #94) */
+  dbWriteFault?: () => void;
 }
 
 export interface RunningServer {
@@ -543,6 +548,8 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
   }
   let core: Core | null = null;
   const probe = options.writerProbe;
+  /** written by the write self-test into the database only (which replica wrote last); never logged or exported */
+  const instanceId = `${hostname()}#${randomUUID().slice(0, 8)}`;
   const openCore = (): void => {
     probe?.opened();
     const db = attemptSync("db:open", () => {
@@ -555,12 +562,34 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
           if (!coordinator.canWrite()) throw new LeaseFencedError();
           probe?.wrote();
         },
+        onWriteHealth: (e) => {
+          recordWriteHealth(lease.kind, e);
+          if (e.healthy) console.warn("[db] database writes work again, ready");
+          else
+            console.error(
+              `[db] database writes failing (${e.failures} in a row), not ready:`,
+              e.error,
+            );
+        },
+        ...(options.dbWriteFault ? { writeFault: options.dbWriteFault } : {}),
         ...(options.schemaMigrations ? { migrations: options.schemaMigrations } : {}),
       });
     });
     if (!db.ok) {
       probe?.closed();
       throw db.error;
+    }
+    // ready means "can write" (DESIGN #94): one real write through the fenced path before anything is served. On a
+    // failure the database is closed without writing and the activation fails: the coordinator gives the lease back and
+    // steps aside, so a former holder can take over again; /api/ready stays 503 (no core).
+    const checked = attemptSync("db:writeCheck", () => db.value.writeCheck(instanceId));
+    if (!checked.ok) {
+      db.value.close({ checkpoint: false });
+      probe?.closed();
+      if (checked.error instanceof LeaseFencedError) throw checked.error;
+      recordWriteCheckFailed(lease.kind, checked.error);
+      console.error("[db] write self-test failed, not serving:", checked.error);
+      throw new WriteCheckError(checked.error);
     }
     const hub = new Hub(db.value, hubOpts);
     core = { db: db.value, hub, stopObserving: observeHub(hub) };
@@ -606,6 +635,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         if (e.type === "activate-failed") console.error("[lease] activation failed:", e.error);
       },
       isFatal: (e) => e instanceof MigrationError,
+      stepAside: (e) => e instanceof WriteCheckError,
       ...(options.leaseRejoinDelayMs === undefined
         ? {}
         : { rejoinDelayMs: options.leaseRejoinDelayMs }),
@@ -670,9 +700,12 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         Object.values(THEMES).map((t) => ({ id: t.id, name: t.name, flag: t.flag })),
       );
     }
-    // readiness: only the instance that holds the writer lease and serves (liveness stays /api/themes)
+    // readiness: only the instance that holds the writer lease, serves and can write (DESIGN #94; liveness stays
+    // /api/themes). Failing writes turn it off but keep the lease: visible to the deploy script, no automatic handover.
     if (parts[0] === "ready" && parts.length === 1 && method === "GET") {
       const state = coordinator.state;
+      if (state === "active" && core && !core.db.writesHealthy)
+        return sendJson(res, 503, { state, writes: "failing" });
       return sendJson(res, state === "active" && core ? 200 : 503, { state });
     }
     // platform readiness (DESIGN #91): the process is up and answers, in standby too, so the traffic can reach a new

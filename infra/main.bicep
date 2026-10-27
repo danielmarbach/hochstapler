@@ -1,8 +1,9 @@
 // Hochstapler on Azure Container Apps (docs/DESIGN.md #50-#52, writer lease and blue/green rollout: #89).
 // Scope: the existing resource group (az deployment group create -g Hochstapler). Names derive from the group id,
-// so every re-run addresses the same resources (idempotent). No key is read or stored anywhere (DESIGN #92): the share is
-// mounted with the environment's managed identity, the writer lease uses the app's, logs reach the workspace through
-// diagnostic settings. No secret is ever an output.
+// so every re-run addresses the same resources (idempotent). The share is mounted with the account key by default
+// (shareAuth 'key', DESIGN #94: the managed-identity mount of #92 could read but not write); the account key is read at
+// deployment time for the environment storage definition only. The writer lease uses the app's managed
+// identity, logs reach the workspace through diagnostic settings (no workspace key). No secret is ever an output.
 targetScope = 'resourceGroup'
 
 @description('Azure region; defaults to the resource group location.')
@@ -57,7 +58,11 @@ param customDomain string = ''
 @description('Custom domain stage (chicken-and-egg: the managed certificate can only be issued for a hostname that is already on the app, and the binding needs the certificate). hostname = hostname on the app without TLS binding; certificate = like hostname plus the managed certificate; bind = hostname bound with SniEnabled and the existing certificate. scripts/azure-deploy.sh drives the stages; an unchanged stage is a no-op (no new revision, no new certificate).')
 param customDomainStage string = 'hostname'
 
-@description('Shared-key (account key) access to the storage account. false = Entra ID only (DESIGN #92). true only in the migration stage: scripts/azure-deploy.sh sets it while an active revision still mounts the share through the old key-based storage definition, or when AZ_ALLOW_SHARED_KEY=1 (rollback).')
+@allowed(['key', 'identity'])
+@description('How the environment mounts the Azure Files share (DESIGN #94). key (default) = key-based storage definition hochstapler-data, shared-key access and NTLMv2 on. identity = managed-identity definition hochstapler-data-mi (DESIGN #92, preview; live it could read but not write, so it is opt-in until that is understood). scripts/azure-deploy.sh passes AZ_SHARE_AUTH.')
+param shareAuth string = 'key'
+
+@description('identity only: shared-key (account key) access to the storage account. false = Entra ID only (DESIGN #92). true only in the migration stage: scripts/azure-deploy.sh sets it while an active revision still mounts the share through the key-based storage definition, or when AZ_ALLOW_SHARED_KEY=1. Ignored with shareAuth key (always on there).')
 param allowSharedKeyAccess bool = false
 
 @description('Blue/green rollout (DESIGN #89): name of the running revision that keeps 100 % of the traffic while a new revision starts with 0 % in standby; scripts/azure-deploy.sh then shifts the traffic, and the first request makes the new revision take the writer lease over (DESIGN #91). Empty = the latest revision gets all traffic.')
@@ -67,9 +72,14 @@ var suffix = uniqueString(resourceGroup().id)
 var storageName = take('st${baseName}${suffix}', 24) // 3-24 chars, lowercase letters/digits
 var registryName = 'cr${baseName}${suffix}' // 5-50 chars, alphanumeric
 var shareName = 'data'
-// managed-identity mount (DESIGN #92). The key-based definition 'hochstapler-data' of earlier versions is not in this
-// template any more; scripts/azure-deploy.sh removes it once shared-key access is off.
-var envStorageName = 'hochstapler-data-mi'
+// two environment storage definitions, one per shareAuth mode (DESIGN #94); only the selected one is deployed, the other
+// one stays as it is in Azure (incremental deployment). The key-based one is removed by scripts/azure-deploy.sh only in
+// identity mode, stage 2 (DESIGN #92), never in key mode.
+var useKey = shareAuth == 'key'
+var sharedKeyOn = useKey || allowSharedKeyAccess
+var keyStorageName = 'hochstapler-data'
+var miStorageName = 'hochstapler-data-mi'
+var envStorageName = useKey ? keyStorageName : miStorageName
 var port = 8787
 var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d' // built-in "AcrPull"
 var blobContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // built-in "Storage Blob Data Contributor"
@@ -112,12 +122,13 @@ resource storage 'Microsoft.Storage/storageAccounts@2025-06-01' = {
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
     allowBlobPublicAccess: false
-    allowSharedKeyAccess: allowSharedKeyAccess // false: Entra ID only, no account key, no SAS (DESIGN #92)
+    allowSharedKeyAccess: sharedKeyOn // key mode: the mount needs it; identity mode: false = Entra ID only (DESIGN #92)
     allowCrossTenantReplication: false
     publicNetworkAccess: 'Enabled'
     networkAcls: { defaultAction: 'Allow', bypass: 'AzureServices' }
-    // Managed Identity for SMB (SMBOAuth): the Container Apps environment mounts the share with an Entra token of its
-    // identity instead of the account key. 'None' = no AD DS / Entra Kerberos for user identities.
+    // Managed Identity for SMB (SMBOAuth): in identity mode the Container Apps environment mounts the share with an Entra
+    // token of its identity instead of the account key. Kept on in key mode too (harmless; needed to investigate #94).
+    // 'None' = no AD DS / Entra Kerberos for user identities.
     azureFilesIdentityBasedAuthentication: {
       directoryServiceOptions: 'None'
       smbOAuthSettings: { isSmbOAuthEnabled: true }
@@ -130,8 +141,8 @@ resource fileService 'Microsoft.Storage/storageAccounts/fileServices@2025-06-01'
   name: 'default'
   properties: {
     shareDeleteRetentionPolicy: { enabled: true, days: shareSoftDeleteDays }
-    // SMB OAuth needs Kerberos; NTLMv2 is the account-key path and stays allowed only while the key is (migration stage)
-    protocolSettings: { smb: { authenticationMethods: allowSharedKeyAccess ? 'NTLMv2;Kerberos' : 'Kerberos' } }
+    // SMB OAuth needs Kerberos; NTLMv2 is the account-key path and stays allowed exactly while the key is
+    protocolSettings: { smb: { authenticationMethods: sharedKeyOn ? 'NTLMv2;Kerberos' : 'Kerberos' } }
   }
 }
 
@@ -198,8 +209,9 @@ resource leaseRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// The environment carries the same identity and mounts the share with it (DESIGN #92). Storage account scope as the
-// Container Apps docs require; the role holds file data actions only, so the lease container stays untouched by it.
+// The environment carries the same identity and, in identity mode, mounts the share with it (DESIGN #92). Kept in key
+// mode for the investigation of #94. Storage account scope as the Container Apps docs require; the role holds file data
+// actions only, so the lease container stays untouched by it.
 resource shareMountRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: storage
   name: guid(storage.id, pullIdentity.id, smbMiAdminRoleId)
@@ -215,7 +227,7 @@ resource shareMountRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 resource environment 'Microsoft.App/managedEnvironments@2026-07-01' = {
   name: 'cae-${baseName}'
   location: location
-  // used for the Azure Files mount only (envStorage); image pulls and the writer lease use the app's identity
+  // used for the identity-mode Azure Files mount only (envStorageMi); image pulls and the writer lease use the app's identity
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: { '${pullIdentity.id}': {} }
@@ -252,13 +264,30 @@ resource envLogs 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   }
 }
 
-// Managed-identity mount (DESIGN #92). PREVIEW: azureFile.identity exists only in 2026-03-02-preview (not in the GA
-// 2026-07-01); if the preview changes or goes away, see DESIGN #92 for the fallback. The identity must be on the
-// environment and hold the role above; dependsOn orders the deployment but does not wait for RBAC propagation (a mount
-// that fails because of it makes the new revision miss its standby check, the deploy script then keeps the old one).
-resource envStorage 'Microsoft.App/managedEnvironments/storages@2026-03-02-preview' = {
+// Key mode (default, DESIGN #94): the definition every revision before #92 mounted, unchanged (same name, same key), so a
+// rollout leaves a running key-mount revision's definition as it is. The key is read here only, at deployment time.
+resource envStorageKey 'Microsoft.App/managedEnvironments/storages@2025-01-01' = if (useKey) {
   parent: environment
-  name: envStorageName
+  name: keyStorageName
+  properties: {
+    azureFile: {
+      accountName: storage.name
+      accountKey: storage.listKeys().keys[0].value
+      shareName: share.name
+      accessMode: 'ReadWrite'
+    }
+  }
+}
+
+// Identity mode: managed-identity mount (DESIGN #92). PREVIEW: azureFile.identity exists only in 2026-03-02-preview (not
+// in the GA 2026-07-01); if the preview changes or goes away, see DESIGN #92 for the fallback. The identity must be on
+// the environment and hold the role above; dependsOn orders the deployment but does not wait for RBAC propagation (a
+// mount that fails because of it makes the new revision miss its standby check, the deploy script then keeps the old
+// one). Live, this mount could read but every write failed (DESIGN #94); the write self-test now keeps such a revision
+// from going ready.
+resource envStorageMi 'Microsoft.App/managedEnvironments/storages@2026-03-02-preview' = if (!useKey) {
+  parent: environment
+  name: miStorageName
   properties: {
     azureFile: {
       accountName: storage.name
@@ -329,7 +358,7 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = if (deployApp) {
     type: 'UserAssigned'
     userAssignedIdentities: { '${pullIdentity.id}': {} }
   }
-  dependsOn: [acrPull, leaseRole]
+  dependsOn: [acrPull, leaseRole, envStorageKey, envStorageMi]
   properties: {
     managedEnvironmentId: environment.id
     workloadProfileName: null
@@ -393,7 +422,7 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = if (deployApp) {
         {
           name: 'data'
           storageType: 'AzureFile'
-          storageName: envStorage.name
+          storageName: envStorageName
           // uid/gid = the image's non-root user. nobrl: no SMB byte-range locks (they are mandatory on the server and make
           // SQLite hang with "database is locked"); safe ONLY because exactly one process opens the file (#51/#52).
           mountOptions: 'uid=1000,gid=1000,dir_mode=0770,file_mode=0660,nobrl,mfsymlinks,cache=strict'

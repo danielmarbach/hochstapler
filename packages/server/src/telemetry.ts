@@ -19,6 +19,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import { GameError, attempt } from "@poly/engine";
 import type { Attributes, Meter, MeterProvider, ObservableResult, Span } from "@opentelemetry/api";
 import type { LeaseEvent } from "./lease/coordinator.ts";
+import type { WriteHealthEvent } from "./db.ts";
 import type { LeaseIssue, LeaseOp } from "./lease/azure-blob.ts";
 
 /** Per-process secret: the hashes below cannot be brute-forced back to ids (47 bits) from exported telemetry. */
@@ -330,6 +331,10 @@ const LOG_ATTRIBUTE_ALLOW = [
   "shutdown.signal",
   "bot.",
   "lease.", // writer lease: kind, state, durations, operation; never the lease id (it is never handed to telemetry)
+  // SQLite errors of the write self-test and the write health only (DESIGN #94): extended result code, sanitized message
+  "db.response.status_code",
+  "db.error.message",
+  "db.write.failures",
 ];
 
 /**
@@ -424,7 +429,12 @@ export function recordLeaseEvent(kind: string, e: LeaseEvent): void {
       emitLog("error", "writer lease lost, writes stopped", base);
       return;
     case "activate-failed":
-      emitLog("error", "writer activation failed", base, e.error);
+      emitLog(
+        "error",
+        "writer activation failed",
+        { ...base, "lease.retry_ms": e.retryInMs },
+        e.error,
+      );
       return;
   }
 }
@@ -435,4 +445,55 @@ export function recordLeaseIssue(kind: string, op: LeaseOp, issue: LeaseIssue): 
   if (issue.status !== undefined) attrs["http.response.status_code"] = issue.status;
   if (issue.code !== undefined) attrs["lease.error_code"] = issue.code;
   emitLog("warn", "writer lease request failed", attrs, issue.error);
+}
+
+// ---------- database writes (docs/DESIGN.md #94) ----------
+// The one place where an error message leaves the process: SQLite messages carry no user data (statements bind their
+// values), only paths, which are cut down to their basename. Everything else keeps the "type and code only" rule.
+
+const MAX_DB_MESSAGE = 200;
+/** an absolute path (unix or windows) that starts a token ("I/O" in "disk I/O error" is none) */
+const PATH = /(?<![^\s'"`(=:])(?:[A-Za-z]:)?[\\/][^\s'"`)]*/g;
+const basename = (path: string): string => path.split(/[\\/]/).at(-1) ?? "";
+
+/** A SQLite error message fit for telemetry: control characters become spaces, every path its basename, at most 200 chars. */
+export function sanitizeDbMessage(message: string): string {
+  return message
+    .replace(/\p{Cc}+/gu, " ")
+    .replace(PATH, basename)
+    .slice(0, MAX_DB_MESSAGE);
+}
+
+/** extended result code and sanitized message of a node:sqlite error; nothing for any other error */
+function sqliteAttributes(error: unknown): Attributes {
+  if (!(error instanceof Error) || !("code" in error) || error.code !== "ERR_SQLITE_ERROR")
+    return {};
+  const attrs: Attributes = { "db.error.message": sanitizeDbMessage(error.message) };
+  if ("errcode" in error && typeof error.errcode === "number")
+    attrs["db.response.status_code"] = String(error.errcode);
+  return attrs;
+}
+
+/** The write self-test of a new writer failed (`error` = the SQLite error, not the wrapper): it does not serve. */
+export function recordWriteCheckFailed(kind: string, error: unknown): void {
+  emitLog(
+    "error",
+    "writer write self-test failed",
+    { "lease.kind": kind, ...sqliteAttributes(error) },
+    error,
+  );
+}
+
+/** The writes of the active writer turned unhealthy (readiness off) or work again. */
+export function recordWriteHealth(kind: string, e: WriteHealthEvent): void {
+  if (e.healthy) {
+    emitLog("info", "database writes work again", { "lease.kind": kind });
+    return;
+  }
+  emitLog(
+    "error",
+    "database writes failing, not ready",
+    { "lease.kind": kind, "db.write.failures": e.failures, ...sqliteAttributes(e.error) },
+    e.error,
+  );
 }

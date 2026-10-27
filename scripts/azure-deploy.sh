@@ -8,6 +8,7 @@
 #   --yes                                   # skip the confirmation of subscription / resource group
 # Needs AZ_SUBSCRIPTION (environment or the gitignored .env.azure, template .env.azure.example).
 # Optional AZ_CUSTOM_DOMAIN: custom domain with a free managed certificate (DNS is checked first, README, DESIGN #53).
+# Optional AZ_SHARE_AUTH: key (default) or identity, how the share is mounted (see below, DESIGN #94).
 #
 # Update strategy (blue/green with the writer lease, DESIGN #89, traffic first #91; replaces the stop-first rollout of
 # #52): the app writes ONE SQLite file on Azure Files (mounted with `nobrl`, no byte-range locks), and only the holder of
@@ -18,22 +19,26 @@
 #   1. new revision with 0 % traffic (Multiple revision mode, 1 replica)
 #   2. wait until it is up in standby (provisioned, running, replica ready, /api/live 200; STANDBY_TIMEOUT_SEC, default 300)
 #   3. 100 % traffic to it   4. trigger: GET / on its own FQDN
-#   5. wait until /api/ready is 200 (= holds the lease; HANDOVER_TIMEOUT_SEC, default 240)
-#   6. deactivate the old revision   7. assert a single active revision
+#   5. wait until /api/ready is 200 (= holds the lease and its write self-test passed, DESIGN #94; HANDOVER_TIMEOUT_SEC,
+#      default 240)   6. deactivate the old revision   7. assert a single active revision
 # Not up in standby -> the new revision is deactivated, the traffic never moved: "rollout failed, previous revision kept".
-# Not ready in time -> if the old revision is ready again (it rejoins after 2 x the lease duration) or becomes ready within
-# ROLLBACK_WAIT_SEC (default 60): traffic back to it, new revision deactivated, "rollout failed, previous revision kept",
-# exit 1. Otherwise the hard fallback: deactivate the old revision (it releases the lease on SIGTERM, or the break period
-# runs out), wait for the new one again, report "handover: fallback".
+# The old revision holds the lease again while waiting (it was seen without it, i.e. it handed over, and the new one gave
+# the lease back, e.g. its write self-test failed; the old one rejoins after 2 x the lease duration) -> roll back at once:
+# traffic back to it, new revision deactivated, "rollout failed, previous revision kept", exit 1.
+# Not ready in time -> if the old revision is ready again or becomes ready within ROLLBACK_WAIT_SEC (default 60): the
+# same rollback. Otherwise the hard fallback: deactivate the old revision (it releases the lease on SIGTERM, or the break
+# period runs out), wait for the new one again, report "handover: fallback". HANDOVER_TIMEOUT_SEC + ROLLBACK_WAIT_SEC
+# must exceed the rejoin delay (30 s), or the fallback stops an old revision that was about to serve again.
 # One-time migration: a running revision WITHOUT WRITER_LEASE=azure-blob does not know the lease, so it is stopped
 # first (the old behaviour) before the new revision starts.
 #
-# No storage keys (DESIGN #92): the share is mounted with the environment's managed identity (storage definition
-# hochstapler-data-mi) and shared-key access is off. Two stages, chosen automatically: while an ACTIVE revision still
-# mounts through the old key-based definition hochstapler-data, every deployment keeps shared-key access on (stage 1:
-# the new revision mounts with the identity, the old one keeps working until the handover); the next run, with no key
-# mount left, turns shared-key access off and removes the old definition (stage 2). AZ_ALLOW_SHARED_KEY=1 keeps the key
-# on (rollback lever, see README).
+# Share authentication (AZ_SHARE_AUTH, DESIGN #94): 'key' (default) mounts the share through the key-based storage
+# definition hochstapler-data with shared-key access on, and nothing below about stages runs: no definition is removed.
+# 'identity' (opt-in, DESIGN #92; live it could read but not write, #94) mounts with the environment's managed identity
+# (hochstapler-data-mi) and turns shared-key access off in two stages, chosen automatically: while an ACTIVE revision
+# still mounts through hochstapler-data, every deployment keeps shared-key access on (stage 1: the new revision mounts
+# with the identity, the old one keeps working until the handover); the next run, with no key mount left, turns
+# shared-key access off and removes hochstapler-data (stage 2). AZ_ALLOW_SHARED_KEY=1 keeps the key on in identity mode.
 #
 # bash 3.2 compatible (macOS): no associative arrays, no mapfile.
 set -euo pipefail
@@ -48,7 +53,7 @@ for arg in "$@"; do
     --infra-only) INFRA_ONLY=1 ;;
     --yes | -y) ASSUME_YES=1 ;;
     -h | --help)
-      sed -n '2,38p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,43p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -79,10 +84,12 @@ TRAFFIC_REVISION="" # blue/green: the running revision keeps all traffic while t
 HANDOVER_TIMEOUT_SEC="${HANDOVER_TIMEOUT_SEC:-240}"
 STANDBY_TIMEOUT_SEC="${STANDBY_TIMEOUT_SEC:-300}"
 ROLLBACK_WAIT_SEC="${ROLLBACK_WAIT_SEC:-60}"
+LEASE_REJOIN_SEC=30 # a former holder competes again 2 x the lease duration (15 s) after it handed over (DESIGN #89)
+SHARE_AUTH="${AZ_SHARE_AUTH:-key}" # shareAuth handed to Bicep: key (default) or identity (DESIGN #94)
 MI_STORAGE="hochstapler-data-mi"   # environment storage definition with managed-identity auth (infra/main.bicep)
-LEGACY_STORAGE="hochstapler-data" # key-based definition of earlier versions, removed in stage 2 (DESIGN #92)
-SHARED_KEY="false"                # allowSharedKeyAccess handed to Bicep
-SHARED_KEY_STAGE=""               # '' = no migration, 'stage1' = an active revision still mounts with the key
+LEGACY_STORAGE="hochstapler-data"  # key-based definition; removed in identity mode, stage 2 only (DESIGN #92)
+SHARED_KEY="false"                 # identity mode: allowSharedKeyAccess handed to Bicep
+SHARED_KEY_STAGE=""                # identity mode: '' = no migration, 'stage1' = an active revision still mounts with the key
 
 log() { printf '==> %s\n' "$*"; }
 die() {
@@ -92,7 +99,17 @@ die() {
 azq() { az "$@" --only-show-errors; }
 
 # ---------- prerequisites ----------
+case "$SHARE_AUTH" in
+  key | identity) ;;
+  *)
+    echo "ERROR: AZ_SHARE_AUTH must be 'key' (default) or 'identity', not '$SHARE_AUTH'." >&2
+    exit 2
+    ;;
+esac
 [ -n "$SUBSCRIPTION" ] || die "AZ_SUBSCRIPTION is not set. Copy .env.azure.example to .env.azure and enter the subscription ID (or set AZ_SUBSCRIPTION in the environment)."
+if [ $((HANDOVER_TIMEOUT_SEC + ROLLBACK_WAIT_SEC)) -le "$LEASE_REJOIN_SEC" ]; then
+  echo "WARNING: HANDOVER_TIMEOUT_SEC + ROLLBACK_WAIT_SEC ($((HANDOVER_TIMEOUT_SEC + ROLLBACK_WAIT_SEC)) s) do not exceed the old revision's rejoin delay (${LEASE_REJOIN_SEC} s): a failed handover may end in the hard fallback instead of a rollback." >&2
+fi
 command -v az > /dev/null || die "Azure CLI (az) is missing."
 command -v git > /dev/null || die "git is missing."
 command -v curl > /dev/null || die "curl is missing."
@@ -142,16 +159,18 @@ deploy_bicep() { # deploy_bicep <deployApp true|false> [image]
     ${HOCHSTAPLER_DATA_DIR:+dataDir="$HOCHSTAPLER_DATA_DIR"} \
     ${DOMAIN:+customDomain="$DOMAIN" customDomainStage="$DOMAIN_STAGE"} \
     ${TRAFFIC_REVISION:+trafficRevision="$TRAFFIC_REVISION"} \
-    allowSharedKeyAccess="$SHARED_KEY" \
+    shareAuth="$SHARE_AUTH" \
+    $([ "$SHARE_AUTH" = "identity" ] && printf 'allowSharedKeyAccess=%s' "$SHARED_KEY") \
     -o none
 }
 app_exists() { az containerapp show -g "$RESOURCE_GROUP" -n "$APP_NAME" --only-show-errors > /dev/null 2>&1; }
 
-# ---------- 0. shared-key removal stage (DESIGN #92) ----------
+# ---------- 0. shared-key removal stage (identity mode only, DESIGN #92 / #94) ----------
 # Fail closed: any active revision whose Azure Files volume is not the managed-identity definition (including an unknown
 # answer) may still mount with the account key, so the key stays allowed in this run.
 resolve_shared_key() {
   local revs rev mount
+  [ "$SHARE_AUTH" = "identity" ] || return 0
   if [ "${AZ_ALLOW_SHARED_KEY:-}" = "1" ]; then
     SHARED_KEY="true"
     echo "WARNING: AZ_ALLOW_SHARED_KEY=1: shared-key access to the storage account stays ON (rollback lever)." >&2
@@ -175,9 +194,10 @@ resolve_shared_key() {
     fi
   done
 }
+log "share auth: $SHARE_AUTH$([ "$SHARE_AUTH" = "key" ] && printf ' (storage definition %s, shared-key access on)' "$LEGACY_STORAGE")"
 resolve_shared_key
-remove_legacy_storage() { # stage 2: nothing mounts with the key any more and shared-key access is off
-  [ "$SHARED_KEY" = "false" ] || return 0
+remove_legacy_storage() { # identity mode, stage 2: nothing mounts with the key any more and shared-key access is off
+  [ "$SHARE_AUTH" = "identity" ] && [ "$SHARED_KEY" = "false" ] || return 0
   azq containerapp env storage list -g "$RESOURCE_GROUP" -n "$ENV_NAME" --query "[].name" -o tsv 2> /dev/null \
     | grep -qx "$LEGACY_STORAGE" || return 0
   log "shared-key removal: stage 2, removing the old key-based storage definition $LEGACY_STORAGE"
@@ -384,6 +404,36 @@ first_ready() { # first_ready <revision...>: the first one that holds the lease 
     fi
   done
 }
+# wait_handover: 0 = $LATEST holds the lease and can write; 2 = a previous revision holds it again after it answered
+# 503 (it handed over and took the lease back: $LATEST gave it up, e.g. a failed write self-test), KEEP names it;
+# 1 = HANDOVER_TIMEOUT_SEC passed. Only an explicit 503 counts as "without the lease", never a timeout (000).
+wait_handover() {
+  local waited=0 gone=0 rev code
+  KEEP=""
+  while [ "$waited" -lt "$HANDOVER_TIMEOUT_SEC" ]; do
+    revision_ready "$LATEST" && return 0
+    KEEP=""
+    for rev in $PREVIOUS; do
+      code="$(revision_get "$rev" /api/ready)"
+      if [ "$code" = "200" ]; then
+        KEEP="$rev"
+      elif [ "$code" = "503" ]; then
+        gone=1
+      fi
+    done
+    if [ -n "$KEEP" ] && [ "$gone" = "1" ]; then return 2; fi
+    sleep 3
+    waited=$((waited + 3))
+  done
+  KEEP=""
+  return 1
+}
+roll_back() { # roll_back <revision that holds the lease again>
+  log "Revision $1 holds the writer lease again: shifting the traffic back and deactivating $LATEST"
+  shift_traffic "$1"
+  stop_revisions "$LATEST"
+  die "rollout failed, previous revision kept: $1 serves again, $LATEST was deactivated. $(logs_hint "$LATEST")"
+}
 HANDOVER="none"
 if [ -z "$PREVIOUS" ]; then
   log "No other revision to hand over from"
@@ -399,7 +449,13 @@ else
   shift_traffic "$LATEST"
   HANDOVER_START=$SECONDS
   log "Triggering the handover: GET / on $LATEST (HTTP $(revision_get "$LATEST" /))"
-  if wait_ready "$LATEST" "$HANDOVER_TIMEOUT_SEC"; then
+  handover_rc=0
+  wait_handover || handover_rc=$?
+  if [ "$handover_rc" = "2" ]; then
+    echo "WARNING: revision $LATEST gave the writer lease up (write self-test failed? DESIGN #94)." >&2
+    log "$KEEP took the writer lease back after the handover"
+    roll_back "$KEEP"
+  elif [ "$handover_rc" = "0" ]; then
     log "Revision $LATEST holds the writer lease; handover took $((SECONDS - HANDOVER_START)) s (traffic shift to ready)"
     log "Deactivating the previous revision(s):$PREVIOUS"
     # shellcheck disable=SC2086
@@ -417,12 +473,7 @@ else
       # shellcheck disable=SC2086
       KEEP="$(first_ready $PREVIOUS)"
     done
-    if [ -n "$KEEP" ]; then
-      log "Revision $KEEP holds the writer lease again: shifting the traffic back and deactivating $LATEST"
-      shift_traffic "$KEEP"
-      stop_revisions "$LATEST"
-      die "rollout failed, previous revision kept: $KEEP serves again, $LATEST was deactivated. $(logs_hint "$LATEST")"
-    fi
+    if [ -n "$KEEP" ]; then roll_back "$KEEP"; fi
     echo "WARNING: no previous revision is ready either; falling back to stopping the previous revision(s) first (outage until $LATEST holds the lease)." >&2
     # shellcheck disable=SC2086
     stop_revisions $PREVIOUS

@@ -17,6 +17,7 @@ import type {
   StoredLobby,
 } from "@poly/engine";
 import { migrateSchema } from "./migrations/schema.ts";
+import { LeaseFencedError } from "./lease/types.ts";
 import { dbLoadDuration, dbTimed, dbWriteDuration, emitLog, spanGameId } from "./telemetry.ts";
 import type { MigrationReport, SchemaMigration } from "./migrations/schema.ts";
 import type { ExpiryPolicy } from "./retention.ts";
@@ -69,6 +70,21 @@ function parseJson(text: string): unknown {
 
 export type JournalMode = "wal" | "delete";
 
+/** Failed writes in a row (fenced writes do not count) after which the writer is "not ready" (docs/DESIGN.md #94). */
+export const WRITE_FAILURE_THRESHOLD = 3;
+
+/** Reported once when the writes turn unhealthy (with the last error) and once when a write works again. */
+export type WriteHealthEvent =
+  { healthy: false; failures: number; error: unknown } | { healthy: true; failures: 0 };
+
+/** The write self-test of a new writer failed: it must not serve (docs/DESIGN.md #94). `cause` = the SQLite error. */
+export class WriteCheckError extends Error {
+  constructor(cause: unknown) {
+    super("database write self-test failed", { cause });
+    this.name = "WriteCheckError";
+  }
+}
+
 const JournalModeSchema = z
   .string()
   .transform((v) => v.toLowerCase())
@@ -107,6 +123,10 @@ export interface DbOptions {
    * container and protect nothing (there the writer lease is the only guard).
    */
   exclusiveLock?: boolean;
+  /** told when the writes turn unhealthy (WRITE_FAILURE_THRESHOLD failures in a row) and when they recover */
+  onWriteHealth?: (e: WriteHealthEvent) => void;
+  /** TESTS ONLY: runs inside every write after the guard; throwing simulates a file system that refuses writes */
+  writeFault?: () => void;
 }
 
 export class Db {
@@ -116,6 +136,9 @@ export class Db {
   private readonly log: (message: string) => void;
   private readonly vacuumMinFreeBytes: number;
   private readonly guard: () => void;
+  private readonly fault: () => void;
+  private readonly onWriteHealth: (e: WriteHealthEvent) => void;
+  private writeFailures = 0;
   /** What the startup schema migration did (from/to version, backup path). */
   readonly migration: MigrationReport;
 
@@ -130,6 +153,8 @@ export class Db {
     this.log = opts.log ?? ((m: string) => console.error(m));
     this.vacuumMinFreeBytes = opts.vacuumMinFreeBytes ?? DEFAULT_VACUUM_MIN_FREE_BYTES;
     this.guard = opts.writeGuard ?? (() => undefined);
+    this.fault = opts.writeFault ?? (() => undefined);
+    this.onWriteHealth = opts.onWriteHealth ?? (() => undefined);
     this.db = new DatabaseSync(dbFile ?? ":memory:");
     const migrated = attemptSync("db:migrate", () => {
       // before journal_mode: in exclusive mode WAL needs no shared-memory file
@@ -156,8 +181,68 @@ export class Db {
    * timers omit it: they update `updated_at` only, so a bot-heavy game still expires. A new game starts "active".
    */
   save(lobby: StoredLobby, state: GameState | null, activityAt?: number): void {
+    this.write(() =>
+      dbTimed("save", dbWriteDuration, () => this.saveRow(lobby, state, activityAt)),
+    );
+  }
+
+  /** false after WRITE_FAILURE_THRESHOLD failed writes in a row, until one works again (readiness, DESIGN #94) */
+  get writesHealthy(): boolean {
+    return this.writeFailures < WRITE_FAILURE_THRESHOLD;
+  }
+
+  /**
+   * Every write: the fence first (a fenced write is no disk failure and counts for nothing), then the write itself,
+   * counted for the write health.
+   */
+  private write<T>(fn: () => T): T {
     this.guard();
-    dbTimed("save", dbWriteDuration, () => this.saveRow(lobby, state, activityAt));
+    const done = attemptSync("db:write", () => {
+      this.fault();
+      return fn();
+    });
+    if (done.ok) {
+      if (!this.writesHealthy) this.onWriteHealth({ healthy: true, failures: 0 });
+      this.writeFailures = 0;
+      return done.value;
+    }
+    if (!(done.error instanceof LeaseFencedError)) {
+      this.writeFailures++;
+      if (this.writeFailures === WRITE_FAILURE_THRESHOLD)
+        this.onWriteHealth({ healthy: false, failures: this.writeFailures, error: done.error });
+    }
+    throw done.error;
+  }
+
+  /**
+   * The write self-test of a new writer (docs/DESIGN.md #94): one real write through the fenced path, in a transaction,
+   * before it reports ready. Upserts the single row of `writer_check` (created here, deliberately not a schema migration:
+   * an older version must still open the file after a rollback). Throws the SQLite error when the file system refuses.
+   */
+  writeCheck(instance: string): void {
+    this.write(() => {
+      this.db.exec("BEGIN IMMEDIATE");
+      const done = attemptSync("db:writeCheck", () => {
+        this.db.exec(
+          `CREATE TABLE IF NOT EXISTS writer_check (
+             id INTEGER PRIMARY KEY CHECK (id = 1),
+             instance TEXT NOT NULL,
+             checked_at INTEGER NOT NULL
+           )`,
+        );
+        this.db
+          .prepare(
+            `INSERT INTO writer_check (id, instance, checked_at) VALUES (1, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET instance = excluded.instance, checked_at = excluded.checked_at`,
+          )
+          .run(instance, Date.now());
+        this.db.exec("COMMIT");
+      });
+      if (!done.ok) {
+        attemptSync("db:writeCheck:rollback", () => this.db.exec("ROLLBACK"));
+        throw done.error;
+      }
+    });
   }
 
   private saveRow(
@@ -190,8 +275,9 @@ export class Db {
 
   /** A seated human opened the game (no state change): counts as activity. */
   touchActivity(gameId: string, at: number): void {
-    this.guard();
-    this.db.prepare("UPDATE games SET last_activity_at = ? WHERE id = ?").run(at, gameId);
+    this.write(() =>
+      this.db.prepare("UPDATE games SET last_activity_at = ? WHERE id = ?").run(at, gameId),
+    );
   }
 
   lastActivity(gameId: string): number | null {
@@ -227,7 +313,10 @@ export class Db {
    * so nothing replays it. All or nothing: on an error the database is unchanged.
    */
   purge(ids: readonly string[], keep: number): PurgeResult {
-    this.guard();
+    return this.write(() => this.purgeRows(ids, keep));
+  }
+
+  private purgeRows(ids: readonly string[], keep: number): PurgeResult {
     const result: PurgeResult = { games: 0, expiredActions: 0, trimmedActions: 0 };
     this.db.exec("BEGIN IMMEDIATE");
     try {
@@ -271,9 +360,9 @@ export class Db {
    * space is worth it. Returns whether it ran.
    */
   vacuumIfWorthIt(): boolean {
-    this.guard();
+    this.guard(); // fenced: refuse even when there is nothing to do (no write, so no write health either)
     if (this.freeBytes() < this.vacuumMinFreeBytes) return false;
-    this.db.exec("VACUUM");
+    this.write(() => this.db.exec("VACUUM"));
     return true;
   }
 
@@ -284,9 +373,10 @@ export class Db {
     action: GameAction | { type: string },
     at: number,
   ): void {
-    this.guard();
-    dbTimed("append_action", dbWriteDuration, () =>
-      this.insertAction(gameId, version, playerId, action, at),
+    this.write(() =>
+      dbTimed("append_action", dbWriteDuration, () =>
+        this.insertAction(gameId, version, playerId, action, at),
+      ),
     );
   }
 
@@ -366,9 +456,11 @@ export class Db {
     return !!this.db.prepare("SELECT 1 AS x FROM games WHERE id = ?").get(id);
   }
 
-  close(): void {
+  /** `checkpoint: false`: close without writing anything (a failed write self-test) */
+  close(opts: { checkpoint?: boolean } = {}): void {
     // a fenced process (lease lost) must not even checkpoint: that writes the database file
-    if (!attemptSync("db:guard", () => this.guard()).ok) return this.db.close();
+    if (opts.checkpoint === false || !attemptSync("db:guard", () => this.guard()).ok)
+      return this.db.close();
     try {
       this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
     } catch {

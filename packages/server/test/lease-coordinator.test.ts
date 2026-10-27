@@ -363,6 +363,108 @@ describe("WriterCoordinator, handover on traffic (DESIGN #91)", () => {
   });
 });
 
+describe("WriterCoordinator, a writer that cannot serve (DESIGN #94)", () => {
+  let store: MemoryLeaseStore;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    Probe.open = 0;
+    Probe.maxOpen = 0;
+    store = new MemoryLeaseStore();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  class WriteCheckFailed extends Error {}
+
+  it("a newcomer whose activation fails the write self-test steps aside: the former holder takes the lease back", async () => {
+    const a = instance(store, "a");
+    a.coordinator.start({ requestHandover: true });
+    await advance(10);
+    const probe = new Probe("b");
+    const lease = new MemoryLease(store);
+    let attempts = 0;
+    const b = new WriterCoordinator(
+      lease,
+      {
+        ...probe.hooks(),
+        activate: () => {
+          attempts++;
+          return Promise.reject(new WriteCheckFailed("attempt to write a readonly database"));
+        },
+      },
+      {
+        clock: () => Date.now(),
+        onEvent: (e) => probe.events.push(e),
+        stepAside: (e) => e instanceof WriteCheckFailed,
+      },
+    );
+    b.start({ requestHandover: true });
+    // A hands over within a renewal; B takes the lease, fails, gives it back at once
+    await advance(4000);
+    expect(attempts).toBe(1);
+    expect(a.coordinator.state).not.toBe("active");
+    expect(b.state).not.toBe("active");
+    expect(store.current()).toBeNull();
+    const failed = probe.events.find((e) => e.type === "activate-failed");
+    // twice the rejoin delay (2 x 30 s): the former holder rejoins after one
+    expect(failed).toMatchObject({ type: "activate-failed", retryInMs: 60_000 });
+    // A rejoins after its rejoin delay (2 x lease duration) and serves again; B waits and never breaks it
+    await advance(30_000);
+    expect(a.coordinator.state).toBe("active");
+    await advance(120_000);
+    expect(a.coordinator.state).toBe("active");
+    expect(store.current()).toBe(a.lease.id);
+    expect(b.state).toBe("acquiring");
+    expect(attempts).toBe(1);
+    expect(Probe.maxOpen).toBe(1);
+    await b.stop();
+    await a.coordinator.stop();
+  });
+
+  it("failed activations back off exponentially, capped, and start over after a good one", async () => {
+    const probe = new Probe("a");
+    let fail = true;
+    const c = new WriterCoordinator(
+      new MemoryLease(store),
+      {
+        ...probe.hooks(),
+        activate: () => (fail ? Promise.reject(new Error("disk full")) : Promise.resolve()),
+      },
+      {
+        clock: () => Date.now(),
+        retryDelayMs: 1000,
+        maxRetryDelayMs: 5000,
+        onEvent: (e) => probe.events.push(e),
+      },
+    );
+    c.start({ requestHandover: true });
+    await advance(20_000);
+    const retries = probe.events.flatMap((e) =>
+      e.type === "activate-failed" ? [e.retryInMs] : [],
+    );
+    expect(retries.slice(0, 5)).toEqual([1000, 2000, 4000, 5000, 5000]);
+    fail = false;
+    await advance(6000);
+    expect(c.state).toBe("active");
+    await c.stop();
+    fail = true;
+    const before = probe.events.length;
+    const again = new WriterCoordinator(
+      new MemoryLease(store),
+      {
+        ...probe.hooks(),
+        activate: () => (fail ? Promise.reject(new Error("disk full")) : Promise.resolve()),
+      },
+      { clock: () => Date.now(), retryDelayMs: 1000, onEvent: (e) => probe.events.push(e) },
+    );
+    again.start({ requestHandover: true });
+    await advance(10);
+    expect(probe.events.slice(before).find((e) => e.type === "activate-failed")).toMatchObject({
+      retryInMs: 1000,
+    });
+    await again.stop();
+  });
+});
+
 describe("WriterCoordinator.whenActive", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
