@@ -99,6 +99,44 @@ export function loadJournalMode(env: NodeJS.ProcessEnv): JournalMode {
   return raw === undefined || raw === "" ? "wal" : JournalModeSchema.parse(raw);
 }
 
+/** SQLite file locking: the normal VFS, or `none` = the unix-none VFS without any file lock (docs/DESIGN.md #95). */
+export type SqliteLocking = "default" | "none";
+
+const SqliteLockingSchema = z.enum(["default", "none"]);
+
+/**
+ * SQLITE_LOCKING: `default` (normal file locks) or `none`. `none` is for the managed-identity (Kerberos) Azure Files mount,
+ * which ignores `nobrl`, so SQLite's byte-range locks reach the SMB server and fail with "database is locked". The writer
+ * lease (#89) is the only guard there anyway, exactly as with `nobrl` on the key mount.
+ */
+export function loadSqliteLocking(env: NodeJS.ProcessEnv): SqliteLocking {
+  const raw = env["SQLITE_LOCKING"];
+  return raw === undefined || raw === "" ? "default" : SqliteLockingSchema.parse(raw);
+}
+
+/** Refuses the combinations where dropping file locks is unsafe: no writer lease, or WAL (needs shared-memory locks). */
+export function checkSqliteLocking(
+  locking: SqliteLocking,
+  journalMode: JournalMode,
+  leaseKind: string,
+): void {
+  if (locking === "default") return;
+  if (journalMode !== "delete") {
+    throw new Error(
+      "SQLITE_LOCKING=none needs SQLITE_JOURNAL_MODE=delete (WAL relies on file locks)",
+    );
+  }
+  if (leaseKind === "none") {
+    throw new Error("SQLITE_LOCKING=none needs a writer lease (WRITER_LEASE=azure-blob or file)");
+  }
+}
+
+/** SQLite URI for `path` on the unix-none VFS; `%`, `?` and `#` in the path are escaped. */
+export function sqliteFileUri(path: string): string {
+  const escaped = path.replace(/%/g, "%25").replace(/\?/g, "%3F").replace(/#/g, "%23");
+  return `file:${escaped}?vfs=unix-none`;
+}
+
 export interface DbOptions {
   /** `wal` (default) or `delete` (network file systems); see loadJournalMode */
   journalMode?: JournalMode;
@@ -123,6 +161,8 @@ export interface DbOptions {
    * container and protect nothing (there the writer lease is the only guard).
    */
   exclusiveLock?: boolean;
+  /** `none`: open through the unix-none VFS, no file locks; needs journalMode delete, no exclusiveLock (#95) */
+  fileLocking?: SqliteLocking;
   /** told when the writes turn unhealthy (WRITE_FAILURE_THRESHOLD failures in a row) and when they recover */
   onWriteHealth?: (e: WriteHealthEvent) => void;
   /** TESTS ONLY: runs inside every write after the guard; throwing simulates a file system that refuses writes */
@@ -155,7 +195,15 @@ export class Db {
     this.guard = opts.writeGuard ?? (() => undefined);
     this.fault = opts.writeFault ?? (() => undefined);
     this.onWriteHealth = opts.onWriteHealth ?? (() => undefined);
-    this.db = new DatabaseSync(dbFile ?? ":memory:");
+    const noLocks = opts.fileLocking === "none";
+    if (noLocks && (opts.journalMode ?? "wal") !== "delete") {
+      throw new Error("fileLocking none needs journalMode delete");
+    }
+    if (noLocks && opts.exclusiveLock)
+      throw new Error("fileLocking none cannot hold an exclusive lock");
+    this.db = new DatabaseSync(
+      dbFile === null ? ":memory:" : noLocks ? sqliteFileUri(dbFile) : dbFile,
+    );
     const migrated = attemptSync("db:migrate", () => {
       // before journal_mode: in exclusive mode WAL needs no shared-memory file
       if (opts.exclusiveLock) this.db.exec("PRAGMA locking_mode = EXCLUSIVE");

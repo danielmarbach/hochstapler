@@ -47,7 +47,13 @@ import { ConnectionCounter, KeyedLimiter, loadLimits } from "./limits.ts";
 import { PowService, loadPowConfig } from "./pow.ts";
 import type { PowConfig, PowFailure } from "./pow.ts";
 import type { LimitsConfig, Take } from "./limits.ts";
-import { Db, WriteCheckError, loadJournalMode } from "./db.ts";
+import {
+  Db,
+  WriteCheckError,
+  checkSqliteLocking,
+  loadJournalMode,
+  loadSqliteLocking,
+} from "./db.ts";
 import { loadRetention } from "./retention.ts";
 import type { RetentionConfig } from "./retention.ts";
 import { MigrationError } from "./migrations/schema.ts";
@@ -486,6 +492,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
   // test mode (refused in production) and test options may use settings below the floors (e2e speed)
   const floors = !(testMode || options.allowLowSettings);
   const journalMode = loadJournalMode(process.env);
+  const sqliteLocking = loadSqliteLocking(process.env);
   if (dataDir !== ":memory:") {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- DATA_DIR is operator config
     mkdirSync(dataDir, { recursive: true });
@@ -496,6 +503,8 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     loadWriterLease(process.env, dataDir, {
       onIssue: (op, issue) => recordLeaseIssue("azure-blob", op, issue),
     });
+  // no file locks only behind a writer lease and with the rollback journal (docs/DESIGN.md #95)
+  checkSqliteLocking(sqliteLocking, journalMode, lease.kind);
   const handoverMode = options.leaseHandover ?? loadHandoverMode(process.env);
   const build = options.buildId ?? readBuildId(staticDir);
   const limits = loadLimits(process.env, options.limits);
@@ -557,7 +566,8 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         journalMode,
         clampSettings: floors,
         // a second process on a local disk gets "database is locked" instead of writing (defence in depth)
-        exclusiveLock: lease.kind === "file",
+        exclusiveLock: lease.kind === "file" && sqliteLocking === "default",
+        fileLocking: sqliteLocking,
         writeGuard: () => {
           if (!coordinator.canWrite()) throw new LeaseFencedError();
           probe?.wrote();

@@ -143,6 +143,8 @@ describe("infra/main.bicep (Azure Container Apps, DESIGN #50-#52)", () => {
     expect(bicep).toMatch(/mountOptions: '[^']*\buid=1000,gid=1000\b/);
     expect(bicep).toMatch(/mountOptions: '[^']*\bnobrl\b/);
     expect(bicep).toContain("{ name: 'SQLITE_JOURNAL_MODE', value: 'delete' }");
+    // the managed-identity mount ignores nobrl: SQLite takes no file locks, the writer lease guards (DESIGN #95)
+    expect(bicep).toContain("{ name: 'SQLITE_LOCKING', value: 'none' }");
     expect(bicep).toContain("{ name: 'HTTPS_ONLY', value: '1' }");
   });
   it("never enables test mode and never outputs secrets", () => {

@@ -311,6 +311,7 @@ var appEnv = concat(
     { name: 'TRUST_PROXY_HOPS', value: '1' }
     // SMB: no WAL (needs shared memory), rollback journal instead (DESIGN #51)
     { name: 'SQLITE_JOURNAL_MODE', value: 'delete' }
+    { name: 'SQLITE_LOCKING', value: 'none' }
     // writer lease (DESIGN #89): only the holder of the blob lease opens the database; token from the managed identity
     // (Container Apps sets IDENTITY_ENDPOINT / IDENTITY_HEADER; AZURE_CLIENT_ID selects the user-assigned identity)
     { name: 'WRITER_LEASE', value: 'azure-blob' }

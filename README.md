@@ -353,7 +353,7 @@ workspace key), Container Apps Environment (with the user-assigned identity), th
 (1 replica, 0.5 vCPU / 1 GiB, startup/liveness probes on `/api/themes`, readiness on `/api/live` (both answer in standby),
 `terminationGracePeriodSeconds: 20`), a private blob container `leases` for the writer lease with the role "Storage Blob Data
 Contributor" for the app's managed identity on that container only (no account key, no SAS). The app runs with
-`NODE_ENV=production`, `HTTPS_ONLY=1`, `DATA_DIR`, `SQLITE_JOURNAL_MODE=delete` (WAL is unsafe over SMB). The database folder
+`NODE_ENV=production`, `HTTPS_ONLY=1`, `DATA_DIR`, `SQLITE_JOURNAL_MODE=delete` (WAL is unsafe over SMB), `SQLITE_LOCKING=none` (SQLite takes no file locks; the writer lease is the guard, see DESIGN #95). The database folder
 is determined by `dataDir` in `infra/main.bicepparam` (default `/data`; currently `/data/v2`, see #52).
 
 **Custom domain (optional, free managed certificate):** Set `AZ_CUSTOM_DOMAIN=game.example.com` in `.env.azure` (or the environment)

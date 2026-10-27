@@ -74,7 +74,7 @@ Principle: **deny by default, allow only what the game really needs.** Every loo
 - `infra/main.bicep` + `scripts/azure-deploy.sh` (`npm run deploy:azure`) are the only way to deploy; `az bicep build` must stay warning-free.
 - **Never open the database without holding the writer lease; never bypass the deploy script.** Two revisions may run during
   a rollout (blue/green), but only the lease holder (`packages/server/src/lease/`, Azure Blob lease) opens the SQLite file.
-  The share is mounted with `nobrl` (no SMB locks) and `SQLITE_JOURNAL_MODE=delete`; two writers corrupt the database, and
+  The share is mounted with `nobrl` (no SMB locks; the managed-identity mount ignores it, hence `SQLITE_LOCKING=none`, #95) and `SQLITE_JOURNAL_MODE=delete`; two writers corrupt the database, and
   there the lease is the only guard. Every DB write goes through the lease fence (`Db` `writeGuard`); no write after a failed
   renewal or past (last renewal + duration - safety margin). No Single revision mode, no second replica per revision.
 - The `file` lease is for local disks only (dev, LAN compose, e2e), never for an SMB/NFS share; `WRITER_LEASE=none` only for
