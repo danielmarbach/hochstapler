@@ -63,3 +63,11 @@ Priority when free credits are scarce: first `house`, `hotel`, `skyscraper`, the
 | `packages/client/public/assets/img/board-center-<theme>.png` | Board centre per country (optional) | stylized illustrated map of <country> in pastel colors, board game centre art |
 
 Codex can also draw canvas/SVG icons for station, utility, tax etc.; the icons live in the client under `src/three/` (procedural drawing functions).
+
+## Provenance and license
+
+All models in `packages/client/public/assets/models/` were generated through the Meshy API (`scripts/meshy/generate.ts`)
+on a paid Meshy Pro plan: the initial set of 42 models on 2026-10-24, the beret and pickelhaube tokens regenerated on
+2026-10-26. Earlier experiments made with free credits in the Meshy web app were never added to the repository. Models
+and the token thumbnails rendered from them are licensed under CC BY 4.0 (see `NOTICE.md`).
+

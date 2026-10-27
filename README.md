@@ -17,7 +17,7 @@ drafted with GPT and proofread. Every decision, including the rejected ones, is 
 
 ## License
 
-Code: [MIT](LICENSE). The 3D models and token images are **not** MIT-licensed, see [NOTICE.md](NOTICE.md).
+Code: [MIT](LICENSE). 3D models and token images: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), see [NOTICE.md](NOTICE.md).
 Security issues: see [SECURITY.md](SECURITY.md).
 
 All design decisions: [docs/DESIGN.md](docs/DESIGN.md) · Assets: [docs/ASSETS.md](docs/ASSETS.md) · Rules for contributors
