@@ -5,7 +5,7 @@ Single source of project rules for all coding agents (Codex, Claude Code via `CL
 ## Project overview
 
 - 3D property-trading board game for the browser. TypeScript monorepo (npm workspaces): `packages/engine` (pure rules, bots, themes, zod
-  schemas; runs on server and client), `packages/server` (Node 25, `node:http` + `ws` + `node:sqlite`, authoritative),
+  schemas; runs on server and client), `packages/server` (Node 26, `node:http` + `ws` + `node:sqlite`, authoritative),
   `packages/client` (Vite + Three.js + Preact), `e2e/` (Playwright-BDD, English Gherkin), `deploy/` (Caddy, prod compose).
 - **`docs/DESIGN.md` is the decision log** (numbered, append-only, English; rows written before the language switch were translated from German). Read it before changing behaviour; append a new
   row at the end of the log table for every design/security/architecture decision. Never delete rows, mark "ersetzt durch #NN".

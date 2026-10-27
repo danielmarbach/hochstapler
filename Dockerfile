@@ -2,8 +2,8 @@
 # Hochstapler — one container serves REST API, WebSocket and the built client (see docs/DESIGN.md #25).
 
 # Pinned by minor version AND digest (reproducible, no surprise base-image changes).
-# Update: docker pull node:25-bookworm-slim && docker inspect --format '{{index .RepoDigests 0}}' node:25-bookworm-slim
-ARG NODE_IMAGE=node:25.9.0-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370
+# Update: docker pull node:26-bookworm-slim && docker inspect --format '{{index .RepoDigests 0}}' node:26-bookworm-slim
+ARG NODE_IMAGE=node:26.12.1-bookworm-slim@sha256:28147155d47dc31abe0a46e0d12b59b2fb3d0a2dcc5dc65fce76a074180b16fe
 
 # ---- build: install everything, build the client bundle ----
 FROM ${NODE_IMAGE} AS build

@@ -420,7 +420,7 @@ stays unchanged). Logs are only warnings, errors and a few info records (start, 
 client and the Aspire dashboard, and injects the `OTEL_*` variables into the server. Games stay in the normal `data/`
 directory.
 
-Prerequisites: Node 25 (as for everything else), the [Aspire CLI](https://aspire.dev/get-started/install-cli/)
+Prerequisites: Node 26 (as for everything else), the [Aspire CLI](https://aspire.dev/get-started/install-cli/)
 (`aspire --version`), Docker is **not** needed. A .NET SDK is not required to run a TypeScript AppHost (the CLI brings
 its own AppHost server; the machine this was built on had .NET 10 installed anyway, so this is unverified without it).
 

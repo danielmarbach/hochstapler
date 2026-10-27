@@ -19,10 +19,12 @@ function numberFormat(locale: string): Intl.NumberFormat {
 export function formatNumber(n: number, lang: Lang = getLang()): string {
   // the Swiss grouping separator is a typographic apostrophe in CLDR; the game uses the plain one everywhere
   // fr-CH groups with a narrow no-break space (U+202F), which many fonts lack: use the plain no-break space
-  return numberFormat(LANG_LOCALE[lang])
+  // CLDR 48 (Node 26 / newer browsers) switched fr-CH grouping to the apostrophe; keep French on the no-break space
+  // so the game looks the same whatever ICU data the browser ships
+  const text = numberFormat(LANG_LOCALE[lang])
     .format(n)
-    .replace(/’/g, "'")
     .replace(/\u202f/g, "\u00a0");
+  return lang === "fr" ? text.replace(/['’]/g, "\u00a0") : text.replace(/’/g, "'");
 }
 
 const percentFormatters = new Map<string, Intl.NumberFormat>();
