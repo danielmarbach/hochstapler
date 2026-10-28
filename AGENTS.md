@@ -74,7 +74,7 @@ Principle: **deny by default, allow only what the game really needs.** Every loo
 - `infra/main.bicep` + `scripts/azure-deploy.sh` (`npm run deploy:azure`) are the only way to deploy; `az bicep build` must stay warning-free.
 - **Never open the database without holding the writer lease; never bypass the deploy script.** Two revisions may run during
   a rollout (blue/green), but only the lease holder (`packages/server/src/lease/`, Azure Blob lease) opens the SQLite file.
-  The share is mounted with `nobrl` (no SMB locks; the managed-identity mount ignores it, hence `SQLITE_LOCKING=none`, #95) and `SQLITE_JOURNAL_MODE=delete`; two writers corrupt the database, and
+  SQLite runs without file locks (`SQLITE_LOCKING=none`; the managed-identity mount ignores `nobrl`, #95) and with `SQLITE_JOURNAL_MODE=delete`; two writers corrupt the database, and
   there the lease is the only guard. Every DB write goes through the lease fence (`Db` `writeGuard`); no write after a failed
   renewal or past (last renewal + duration - safety margin). No Single revision mode, no second replica per revision.
 - The `file` lease is for local disks only (dev, LAN compose, e2e), never for an SMB/NFS share; `WRITER_LEASE=none` only for
@@ -87,13 +87,11 @@ Principle: **deny by default, allow only what the game really needs.** Every loo
   probes (`kube-probe/`) and `/api/ready` / `/api/live` never trigger it.
 - Exactly 1 replica (min=max=1), ingress `allowInsecure: false`, never set `POLY_TEST_MODE`, no secrets in outputs or script output,
   ACR admin user stays off (pull via managed identity).
-- **Share authentication (DESIGN #92, relaxed by #94):** the share is mounted with the **account key by default**
-  (`shareAuth='key'`, storage definition `hochstapler-data`, shared-key access and NTLMv2 on), because the managed-identity
-  mount of #92 could read but not write live (#94). The key is read with `listKeys()` in exactly one place (that storage
-  definition, at deployment time) and is never an output, never in the script, docs or logs. The managed-identity mount
-  (`AZ_SHARE_AUTH=identity`, `hochstapler-data-mi`, preview API) stays opt-in until the write failure is understood; only in
-  identity mode may the script turn shared-key access off and remove `hochstapler-data`, never in key mode. No SAS,
-  connection strings or `--account-key` anywhere; operators' data-plane access is Entra ID (`--auth-mode login`) with a data
+- **Share authentication (DESIGN #92, #96): managed identity only, no account keys anywhere.** The environment mounts the
+  share with its user-assigned identity through `hochstapler-data-mi` (preview API, role "Storage File Data SMB MI Admin",
+  SMB OAuth, Kerberos only); `allowSharedKeyAccess` stays `false`. No `listKeys()`, no key-based storage definition, no
+  NTLMv2, no SAS, connection strings or `--account-key` anywhere (template, script, docs, logs). The way back if the mount
+  breaks is reverting the #96 cleanup, not a new key path; operators' data-plane access is Entra ID (`--auth-mode login`) with a data
   role. Environment logs go through diagnostic settings (console + system only, never `ContainerAppHTTPLogs`), not the
   workspace key.
 - Custom domain (DESIGN #53) is optional config (`AZ_CUSTOM_DOMAIN`, never in the repo); stages `hostname` -> `certificate` -> `bind` live in the

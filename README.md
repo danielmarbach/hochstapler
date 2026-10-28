@@ -174,10 +174,8 @@ changes (new endpoints, headers, tokens): [AGENTS.md](AGENTS.md).
   Client addresses are only in-memory keys, never logged or exported.
 - **Game ids are spectator links** (#62): anyone who knows a game id can watch (not act or chat). Telemetry only carries a
   salted hash of it.
-- **Azure storage** (#63, #92, #94): the share is mounted with the account key again (shared-key access on) since the
-  managed-identity mount of #92 could read but not write live; that mount stays available as an opt-in
-  (`AZ_SHARE_AUTH=identity`) until the write failure is understood. The key is only read at deployment time for the storage
-  definition, never output or logged. Public network access stays on (accepted residual risk; a VNet would mean recreating
+- **Azure storage** (#63, #92, #95, #96): the share is mounted with the environment's managed identity, shared-key access
+  on the storage account is off and no account key is read anywhere (Bicep, script, operators). Public network access stays on (accepted residual risk; a VNet would mean recreating
   the environment, domain and certificate).
 - **Log Analytics / Application Insights** (#64, #92): the environment sends its logs through a diagnostic setting (no
   workspace key); Application Insights keeps key-based ingestion for the OpenTelemetry agent; junk telemetry is capped by the
@@ -275,8 +273,8 @@ docker inspect --format '{{.State.Health.Status}}' $(docker compose ps -q hochst
 ## Azure Container Apps
 
 Hosting on Azure with the default HTTPS domain (`https://hochstapler.<env>.switzerlandnorth.azurecontainerapps.io`), entirely in
-Bicep (`infra/main.bicep`). Decisions: #50 to #52, #89, #91, #92 (managed-identity mount, now opt-in) and #94 (account key
-by default, ready means "can write") in [docs/DESIGN.md](docs/DESIGN.md).
+Bicep (`infra/main.bicep`). Decisions: #50 to #53, #89, #91, #92 (managed-identity mount), #94 (ready means "can write"),
+#95 (SQLite without file locks) and #96 (identity-only cleanup) in [docs/DESIGN.md](docs/DESIGN.md).
 
 **Prerequisites:** Azure CLI (`az login`), access to the subscription and the existing resource group `Hochstapler`
 (it is not created). Copy `.env.azure.example` to `.env.azure` once (listed in `.gitignore`) and enter the
@@ -321,33 +319,21 @@ the lease within `HANDOVER_TIMEOUT_SEC` (default 240) and the old revision is re
 `ROLLBACK_WAIT_SEC`, default 60), the same rollback; otherwise it falls back to stopping the old revision first and reports
 `handover: fallback` (keep `HANDOVER_TIMEOUT_SEC + ROLLBACK_WAIT_SEC` above the 30 s rejoin delay; the script warns
 otherwise). While a revision serves, three failed database writes in a row turn its `/api/ready` to 503 (`writes:
-"failing"`, error log `database writes failing, not ready`); it keeps the lease, nothing hands over automatically. A running revision from before the writer lease (#89) is stopped first (it does not know the lease).
+"failing"`, error log `database writes failing, not ready`); it keeps the lease, nothing hands over automatically.
 So **never deploy the Bicep without the script**, and never open the database without holding the lease.
 
-**Share authentication (`AZ_SHARE_AUTH`, DESIGN #92, #94):**
-
-- **`key` (default):** the environment mounts the share through the key-based storage definition `hochstapler-data` (the
-  account key is read at deployment time for that definition only), shared-key access and SMB NTLMv2 are on. The script
-  runs no stage logic and never removes a storage definition. This is how every revision up to 19 mounted the share, so a
-  rollout leaves a running key-mount revision untouched.
-- **`identity` (opt-in, preview):** the environment mounts the share with its managed identity (`id-hochstapler-pull`, the
-  same one the app uses for the registry and the lease; role "Storage File Data SMB MI Admin" on the storage account, SMB
-  OAuth + Kerberos) through the definition `hochstapler-data-mi`. **On 2026-10-27 this mount could read the database but
-  every write failed** (DESIGN #94); it stays available for the investigation only. Set `AZ_SHARE_AUTH=identity` for a
-  single run (not in `.env.azure`) and watch the logs (`writer write self-test failed` carries the SQLite code and a
-  sanitized message). The switch off the key then runs in two stages, chosen by the script: **stage 1** (an active revision
-  still mounts `hochstapler-data`): shared-key access stays on, the new revision mounts with the identity and takes over (it
-  only becomes ready if its write self-test passes, otherwise the old one takes the lease back and the script rolls back);
-  **stage 2** (the next identity run, nothing active mounts with the key): shared-key access off (Kerberos only) and
-  `hochstapler-data` is removed. `AZ_ALLOW_SHARED_KEY=1` keeps the key on in identity mode.
-
-The environment identity, SMB OAuth and the role assignment stay deployed in both modes (harmless with the key mount).
-Going back from an identity revision is a normal `key` run: the new revision mounts `hochstapler-data` again (the
-definition is re-created if stage 2 removed it).
+**Share authentication (managed identity only, DESIGN #92, #95, #96):** the environment mounts the share with its managed
+identity (`id-hochstapler-pull`, the same one the app uses for the registry and the lease; role "Storage File Data SMB MI
+Admin" on the storage account, SMB OAuth + Kerberos) through the storage definition `hochstapler-data-mi` (preview API).
+Shared-key access on the storage account is off and no account key is read anywhere: not in Bicep, not in the script,
+not by operators. The platform ignores the volume's `mountOptions` on this mount (no `nobrl`), so SQLite runs without file
+locks (`SQLITE_LOCKING=none`, #95) and the writer lease is the only guard. If the managed-identity mount ever breaks (the
+preview changes or is withdrawn), the way back is reverting the #96 cleanup and deploying: that brings the key-based
+definition and shared-key access back (#94).
 
 **What gets created** (everything in the resource group, names from `uniqueString`): Container Registry Basic (no admin user,
-pull via managed identity), Storage Account Standard LRS with Azure Files share `data` (mount `/data`, `nobrl`,
-`uid/gid 1000`, soft delete 14 days; mounted with the account key by default, see above), Log Analytics
+pull via managed identity), Storage Account Standard LRS with Azure Files share `data` (mount `/data`,
+soft delete 14 days; mounted with the managed identity, shared-key access off, see above), Log Analytics
 (30 days, daily cap 0.1 GB; the environment's console and system logs arrive through a diagnostic setting, not with the
 workspace key), Container Apps Environment (with the user-assigned identity), the app
 (1 replica, 0.5 vCPU / 1 GiB, startup/liveness probes on `/api/themes`, readiness on `/api/live` (both answer in standby),
@@ -405,8 +391,7 @@ az storage file upload   --account-name $ACC --share-name data --source ./games.
 az containerapp revision activate -g Hochstapler -n hochstapler --revision <revision>
 ```
 
-(Use Entra ID even though the key works again in key mode (#94); in identity mode, stage 2, it is the only way:
-`--auth-mode login` needs the role "Storage File Data Privileged Contributor" for your account and
+(Entra ID is the only way, shared-key access is off: `--auth-mode login` needs the role "Storage File Data Privileged Contributor" for your account and
 `--enable-file-backup-request-intent`; the portal's file browser needs the same role and "Microsoft Entra user account" as
 authentication method. Azure Backup for Azure Files is not configured.) Back up the old file before
 restoring; deactivate **every** active revision first (a standby revision would take the lease over and open the file).
