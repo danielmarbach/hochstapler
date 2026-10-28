@@ -217,7 +217,7 @@ describe("writer lease on Azure (DESIGN #89)", () => {
     expect(bicep).toMatch(
       /resource leaseRole[\s\S]*?principalId: pullIdentity\.properties\.principalId/,
     );
-    expect(bicep).toContain("dependsOn: [acrPull, leaseRole, envStorageKey, envStorageMi]");
+    expect(bicep).toContain("dependsOn: [acrPull, leaseRole, envStorageMi]");
     expect(bicep).not.toMatch(/listAccountSas|listServiceSas/);
     // the lease settings are plain values: an endpoint URL and names, never a key
     for (const line of bicep.split("\n").filter((l) => /WRITER_LEASE|AZURE_CLIENT_ID/.test(l))) {
@@ -249,62 +249,48 @@ describe("writer lease on Azure (DESIGN #89)", () => {
   });
 });
 
-describe("share authentication on Azure: account key by default, managed identity opt-in (DESIGN #92, #94)", () => {
+describe("share authentication on Azure: managed identity only, no account keys (DESIGN #92, #95, #96)", () => {
   const bicep = read("infra/main.bicep");
   const resource = (name: string): string => {
     const start = bicep.indexOf(`resource ${name} `);
     expect(start).toBeGreaterThan(-1);
     return bicep.slice(start, bicep.indexOf("\n}\n", start));
   };
-  it("selects the share authentication with a parameter that defaults to the account key", () => {
-    expect(bicep).toMatch(
-      /@allowed\(\['key', 'identity'\]\)\s*@description\([^\n]*\)\s*param shareAuth string = 'key'/,
-    );
-    expect(bicep).toContain("var useKey = shareAuth == 'key'");
+  it("has no share-auth switch and no shared-key lever (DESIGN #96)", () => {
+    expect(bicep).not.toMatch(/shareAuth|useKey|sharedKeyOn|keyStorageName|envStorageKey/);
+    expect(bicep).not.toMatch(/param allowSharedKeyAccess/);
     expect(read("infra/main.bicepparam")).not.toMatch(/shareAuth|allowSharedKeyAccess/);
   });
-  it("key: shared-key access and NTLMv2 on; identity: only while the deploy script's migration stage asks for it", () => {
-    expect(bicep).toContain("param allowSharedKeyAccess bool = false");
-    expect(bicep).toContain("var sharedKeyOn = useKey || allowSharedKeyAccess");
-    expect(resource("storage")).toContain("allowSharedKeyAccess: sharedKeyOn");
+  it("never reads an account key: no listKeys(, no accountKey, no SAS, no workspace key", () => {
+    expect(bicep).not.toContain("listKeys(");
+    expect(bicep).not.toMatch(/accountKey|sharedKey:|listAccountSas|listServiceSas/);
+    expect(bicep).not.toContain("'hochstapler-data'");
+  });
+  it("shared-key access is off and SMB accepts Kerberos only", () => {
+    expect(resource("storage")).toContain("allowSharedKeyAccess: false");
     expect(resource("fileService")).toContain(
-      "protocolSettings: { smb: { authenticationMethods: sharedKeyOn ? 'NTLMv2;Kerberos' : 'Kerberos' } }",
+      "protocolSettings: { smb: { authenticationMethods: 'Kerberos' } }",
     );
+    expect(bicep).not.toContain("NTLMv2");
   });
-  it("key: the key-based storage definition hochstapler-data (GA API), the account key read only for it", () => {
-    const keyStorage = resource("envStorageKey");
-    expect(keyStorage).toMatch(
-      /^resource envStorageKey 'Microsoft\.App\/managedEnvironments\/storages@2025-01-01' = if \(useKey\) \{/,
-    );
-    expect(keyStorage).toContain("name: keyStorageName");
-    expect(keyStorage).toMatch(
-      /azureFile: \{\s*accountName: storage\.name\s*accountKey: storage\.listKeys\(\)\.keys\[0\]\.value\s*shareName: share\.name\s*accessMode: 'ReadWrite'\s*\}/,
-    );
-    expect(bicep).toContain("var keyStorageName = 'hochstapler-data'");
-    // the account key is read exactly once, for this definition; never a workspace key, a SAS or an output
-    expect(bicep.match(/listKeys\(/g)).toHaveLength(1);
-    expect(bicep).not.toMatch(/sharedKey:|listAccountSas|listServiceSas/);
-  });
-  it("identity: the managed-identity definition hochstapler-data-mi (preview API), after the role exists", () => {
+  it("the managed-identity definition hochstapler-data-mi (preview API), always deployed, after the role exists", () => {
     const miStorage = resource("envStorageMi");
     expect(miStorage).toMatch(
-      /^resource envStorageMi 'Microsoft\.App\/managedEnvironments\/storages@2026-03-02-preview' = if \(!useKey\) \{/,
+      /^resource envStorageMi 'Microsoft\.App\/managedEnvironments\/storages@2026-03-02-preview' = \{/,
     );
     expect(miStorage).toContain("name: miStorageName");
     expect(miStorage).toMatch(
       /azureFile: \{\s*accountName: storage\.name\s*identity: pullIdentity\.id\s*shareName: share\.name\s*accessMode: 'ReadWrite'\s*\}/,
     );
     expect(miStorage).toContain("dependsOn: [shareMountRole]");
-    expect(miStorage).not.toContain("accountKey");
     expect(bicep).toContain("var miStorageName = 'hochstapler-data-mi'");
   });
-  it("the app mounts the definition of the selected mode and waits for it", () => {
-    expect(bicep).toContain("var envStorageName = useKey ? keyStorageName : miStorageName");
+  it("the app mounts the managed-identity definition and waits for it", () => {
     const app = resource("app");
-    expect(app).toContain("storageName: envStorageName");
-    expect(app).toContain("dependsOn: [acrPull, leaseRole, envStorageKey, envStorageMi]");
+    expect(app).toContain("storageName: miStorageName");
+    expect(app).toContain("dependsOn: [acrPull, leaseRole, envStorageMi]");
   });
-  it("keeps SMB OAuth on the account in both modes (needed to investigate the identity mount)", () => {
+  it("turns SMB OAuth on for the account (Managed Identity for SMB)", () => {
     expect(resource("storage")).toMatch(
       /azureFilesIdentityBasedAuthentication: \{\s*directoryServiceOptions: 'None'\s*smbOAuthSettings: \{ isSmbOAuthEnabled: true \}/,
     );
