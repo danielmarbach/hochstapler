@@ -14,7 +14,9 @@ import {
 import { t } from "../i18n/index.ts";
 import { sendAction } from "../net/ws.ts";
 import { set, useApp } from "../net/store.ts";
-import { asGame, money, useTheme } from "./util.tsx";
+import { tileKindText } from "../i18n/labels.ts";
+import { buyInfo } from "./buy-info.ts";
+import { asGame, money, useTheme, useThemeText } from "./util.tsx";
 import { useGate } from "./gate.ts";
 
 /** pre-filled auto-bid maximum: this far above the current highest bid (bounded by what the player can raise) */
@@ -40,6 +42,7 @@ function ActionBarFor({
   compact: boolean;
 }) {
   const theme = useTheme();
+  const texts = useThemeText();
   const busy = useApp((s) => s.busy);
   const gate = useGate();
   const pendingIn = state.trades.filter((t) => t.status === "pending" && t.to === you).length;
@@ -220,11 +223,37 @@ function ActionBarFor({
     );
   } else if (phase.type === "await-buy" && isMyTurn) {
     const def = at(BOARD, phase.tile);
+    const info = buyInfo(asGame(state), you, phase.tile);
+    const group = info?.group;
+    const groupLabel =
+      typeof group === "number" ? (texts.groupNames[group] ?? "") : tileKindText(def.kind);
     main = (
       <div class="buy" data-testid="buy-offer">
         <div class="atitle">
           {theme.tileNames[phase.tile]} <small>{money(theme, def.price ?? 0)}</small>
         </div>
+        {info && (
+          <ul class="buyinfo">
+            <li data-testid="buy-rent">
+              {t("buy.rent", {
+                rent:
+                  info.kind === "utility"
+                    ? t("prop.utilityRent", { n: info.rent })
+                    : money(theme, info.rent),
+              })}
+            </li>
+            <li data-testid="buy-group" class={info.complete ? "full" : undefined}>
+              {t(info.complete ? "buy.groupFull" : "buy.group", {
+                group: groupLabel,
+                owned: info.owned,
+                total: info.total,
+              })}
+            </li>
+            <li data-testid="buy-cash" class={info.cashAfter < 0 ? "short" : undefined}>
+              {t("buy.cashAfter", { amount: money(theme, info.cashAfter) })}
+            </li>
+          </ul>
+        )}
         <div class="btns">
           <button
             class="cta slim"
