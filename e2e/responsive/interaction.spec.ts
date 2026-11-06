@@ -383,6 +383,53 @@ test.describe("Debt notice and bankruptcy button", () => {
     );
   });
 
+  test("the notice wraps its debt and shortfall as units, never leaving an amount alone on a line", async ({
+    table,
+  }) => {
+    const notice = table.actor.testId("debt-notice");
+    await expect(notice).toBeVisible();
+    const lines = await notice.locator(".debt-line").evaluate((el) => {
+      const rows = new Map<number, string>();
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const text = node.textContent ?? "";
+        for (let i = 0; i < text.length; i++) {
+          const range = document.createRange();
+          range.setStart(node, i);
+          range.setEnd(node, i + 1);
+          const rect = range.getClientRects()[0];
+          if (rect && text[i]?.trim()) {
+            const row = Math.round(rect.top);
+            rows.set(row, `${rows.get(row) ?? ""}${text[i]}`);
+          }
+        }
+      }
+      return [...rows.values()];
+    });
+    for (const line of lines) {
+      expect(line, "an amount never stands alone on a line").not.toMatch(/^(CHF)?[\d']+$/);
+    }
+    expect(lines.join(" "), "the shortfall keeps its words together").toContain("esfehlenCHF850");
+  });
+
+  test("the bankruptcy dialog asks like the other confirmations: danger button first, safe cancel second", async ({
+    table,
+  }) => {
+    await table.actor.action("bankrupt").click();
+    const dialog = table.actor.testId("bankrupt-dialog");
+    await expect(dialog).toBeVisible();
+    const buttons = dialog.locator(".dialog-actions > button");
+    await expect(buttons).toHaveCount(2);
+    await expect(buttons.nth(0)).toHaveAttribute("data-testid", "bankrupt-confirm");
+    await expect(buttons.nth(0)).toHaveClass(/\bdanger\b/);
+    await expect(buttons.nth(1)).toHaveAttribute("data-testid", "bankrupt-cancel");
+    await expect(buttons.nth(1)).toBeFocused();
+    for (const button of [buttons.nth(0), buttons.nth(1)]) {
+      const box = await button.boundingBox();
+      expect(box?.height, "touch target height").toBeGreaterThanOrEqual(MIN_TARGET);
+    }
+  });
+
   test("bankruptcy is a compact secondary control, not a full-width button", async ({
     page,
     table,
