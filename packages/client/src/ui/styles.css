@@ -1556,6 +1556,10 @@ button.chip.on {
 }
 .atitle.debt {
   color: var(--bad);
+  /* the hint goes under the creditor line, else the bar outgrows its max width and wraps the buttons */
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 /* buy offer: rent, colour progress and cash after buying as one wrapping line of facts */
 .buyinfo {
