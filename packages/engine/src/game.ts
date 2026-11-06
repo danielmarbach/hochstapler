@@ -425,15 +425,26 @@ export function legalActions(state: GameState, playerId: PlayerId): GameAction["
 
 // ------------------------------------------------------------------ deadlines & finalisation
 
+/** The turn clock exists so other people do not wait; bots and away players never wait (docs/DESIGN.md #100). */
+function clockRuns(s: GameState): boolean {
+  const pid = whoMustAct(s)[0];
+  const actor = s.players.find((p) => p.id === pid);
+  return (
+    s.settings.turnTimeoutSec > 0 &&
+    actor?.controller === "human" &&
+    s.players.some((q) => q.id !== actor.id && !q.bankrupt && q.controller === "human")
+  );
+}
+
 function setDeadline(c: Ctx): void {
-  const actors = whoMustAct(c.s);
-  const t = c.s.settings.turnTimeoutSec;
-  if (actors.length === 0 || t <= 0) {
-    c.s.deadline = null;
-    return;
+  c.s.deadline = clockRuns(c.s) ? c.now + c.s.settings.turnTimeoutSec * MS_PER_SEC : null;
+}
+
+/** Re-arms only when the clock should start or stop, so a running clock is never extended. */
+function syncDeadline(c: Ctx): void {
+  if ((c.s.deadline !== null) !== clockRuns(c.s)) {
+    setDeadline(c);
   }
-  const p = player(c, at(actors, 0));
-  c.s.deadline = p.controller === "human" ? c.now + t * MS_PER_SEC : null;
 }
 
 function finalize(c: Ctx, prevActors: string, prevPhase: string, actingPid: PlayerId | null): void {
@@ -445,6 +456,8 @@ function finalize(c: Ctx, prevActors: string, prevPhase: string, actingPid: Play
     (actingPid !== null && actors[0] === actingPid)
   ) {
     setDeadline(c);
+  } else {
+    syncDeadline(c);
   }
   capLog(c);
   c.s.version++;
@@ -531,12 +544,7 @@ export function setController(
       log(c, "log.botTakesOver", { player: p.id });
     }
   }
-  if (c.s.deadline === null && controller === "human") {
-    setDeadline(c);
-  }
-  if (controller !== "human" && whoMustAct(c.s)[0] === playerId) {
-    c.s.deadline = null;
-  }
+  syncDeadline(c);
   resolveEndVote(c);
   capLog(c);
   c.s.version++;

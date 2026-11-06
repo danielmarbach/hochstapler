@@ -356,8 +356,8 @@ export function runSim(cfg: SimConfig): SimResult {
         throw new Error(`bot has no action in ${s.phase.type}`);
       }
       commit(applyBotAction(s, pid, a, now).state, s, now);
-    } else if (!timeout) {
-      // no time limit: a human must act; they cannot be idle
+    } else if (!timeout || (actor.controller === "human" && s.deadline === null)) {
+      // no clock (no limit, or no other human waits): a human must act; they cannot be idle
       if (!humanAct(pid)) {
         throw new Error("human has no legal action");
       }

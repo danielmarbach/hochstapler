@@ -270,7 +270,11 @@ export function assertInvariants(s: GameState, ctx: InvariantContext = {}): void
     }
     // deadline
     const actor = byId.get(actors[0]!)!;
-    const expectNull = s.settings.turnTimeoutSec <= 0 || actor.controller !== "human";
+    const othersWait = s.players.some(
+      (q) => q.id !== actor.id && !q.bankrupt && q.controller === "human",
+    );
+    const expectNull =
+      s.settings.turnTimeoutSec <= 0 || actor.controller !== "human" || !othersWait;
     if (expectNull) {
       check(
         s,

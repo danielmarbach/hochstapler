@@ -3,6 +3,7 @@ import { BOARD } from "../src/board.ts";
 import { CARDS } from "../src/cards.ts";
 import {
   applyAction,
+  createGame,
   handleTimeout,
   legalActions,
   redactState,
@@ -19,8 +20,8 @@ import {
   rentFor,
 } from "../src/helpers.ts";
 import { chooseBotAction } from "../src/bot.ts";
-import { GameError } from "../src/types.ts";
-import { act, give, groupOf, mk, rig } from "./util.ts";
+import { DEFAULT_SETTINGS, GameError } from "../src/types.ts";
+import { act, give, groupOf, mk, players, rig } from "./util.ts";
 
 describe("board", () => {
   it("has 52 tiles with the documented layout", () => {
@@ -506,6 +507,39 @@ describe("timeouts and away", () => {
     expect(back.state.players[0]!.controller).toBe("human");
     expect(back.state.players[0]!.missedTurns).toBe(0);
     expect(back.events.some((e) => e.type === "controller" && e.controller === "human")).toBe(true);
+  });
+  it("runs no turn clock for a human whose only opponents are bots", () => {
+    const ps = players(3, "bot");
+    ps[0] = { ...ps[0]!, controller: "human" };
+    const s = createGame("g", ps, { ...DEFAULT_SETTINGS, turnTimeoutSec: 60 }, 12345, 1000).state;
+    expect(s.deadline).toBeNull();
+    const r = handleTimeout(s, 1000 + 3_600_000);
+    expect(r.state.current).toBe(0);
+    expect(r.state.players[0]!.missedTurns).toBe(0);
+    expect(r.state.players[0]!.controller).toBe("human");
+  });
+  it("stops the clock when the other human goes away and restarts it when they return", () => {
+    const ps = players(3, "bot");
+    ps[0] = { ...ps[0]!, controller: "human" };
+    ps[1] = { ...ps[1]!, controller: "human" };
+    let s = createGame("g", ps, { ...DEFAULT_SETTINGS, turnTimeoutSec: 60 }, 12345, 1000).state;
+    expect(s.deadline).toBe(1000 + 60_000);
+    s = setController(s, "p1", "away", 2000).state;
+    expect(s.deadline).toBeNull();
+    s = setController(s, "p1", "human", 3000).state;
+    expect(s.deadline).toBe(3000 + 60_000);
+  });
+  it("starts the clock when an away human comes back with an action outside their turn", () => {
+    // found by the property test: the return did not change the actor, so the deadline stayed null
+    const ps = players(3, "bot");
+    ps[0] = { ...ps[0]!, controller: "human" };
+    ps[1] = { ...ps[1]!, controller: "human" };
+    let s = createGame("g", ps, { ...DEFAULT_SETTINGS, turnTimeoutSec: 60 }, 12345, 1000).state;
+    s = setController(s, "p1", "away", 2000).state;
+    expect(s.deadline).toBeNull();
+    s = applyAction(s, "p1", { type: "propose-end-game" }, 3000).state;
+    expect(s.players[1]!.controller).toBe("human");
+    expect(s.deadline).toBe(3000 + 60_000);
   });
   it("does not mutate input, redacts rng and decks", () => {
     const s = mk();
