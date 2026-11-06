@@ -128,6 +128,21 @@ export function Swatch({ color, size = 14 }: { color: string; size?: number }) {
   return <span class="swatch" style={{ background: color, width: size, height: size }} />;
 }
 
+/** online/offline dot: the colour is for the eye, the text name (online / offline) for assistive tech and tooltips */
+export function PresenceDot({ online, testId }: { online: boolean; testId?: string }) {
+  const label = t(online ? "common.online" : "common.offline");
+  return (
+    <span
+      class={`dot ${online ? "on" : ""}`}
+      role="img"
+      aria-label={label}
+      title={label}
+      data-testid={testId}
+      data-online={online}
+    />
+  );
+}
+
 /** applies the travel-poster palette of `themeId` to the document */
 export function usePalette(themeId: string): void {
   useEffect(() => {

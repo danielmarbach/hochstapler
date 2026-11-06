@@ -189,6 +189,10 @@ export const de = {
   "lobby.host": "Host",
   "lobby.botBadge": "Bot · {level}",
   "lobby.removeSeat": "{name} entfernen",
+  "lobby.removeSeatTitle": "{name} vom Tisch entfernen?",
+  "lobby.removeSeatBody":
+    "{name} verliert den Platz und kann nur mit dem Einladungslink wieder beitreten.",
+  "lobby.removeSeatCancel": "Behalten",
   "lobby.freeSeat": "Freier Platz",
   "lobby.inviteLink": "Einladungslink",
   "lobby.copyLink": "Link kopieren",
