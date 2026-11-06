@@ -146,7 +146,8 @@ export const de = {
   "home.removeBot": "Bot entfernen",
   "home.addBot": "+ Bot hinzufügen",
   "home.freeSeats": "Freie Plätze ({free}) kannst du per Einladungslink an Freunde vergeben.",
-  "home.limitNote": "Läuft die Zeit ab, übernimmt ein Bot den Zug.",
+  "home.limitNote":
+    "Läuft die Zeit ab, übernimmt ein Bot den Zug. Spielst du allein gegen Bots, läuft keine Uhr.",
   "home.limit.live": "Live 60 s",
   "home.limit.live.hint": "Für den Spieleabend",
   "home.limit.cosy": "Gemütlich 5 min",

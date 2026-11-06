@@ -132,7 +132,8 @@ export const gsw = {
   "home.removeBot": "Bot entferne",
   "home.addBot": "+ Bot dezue tue",
   "home.freeSeats": "Freii Plätz ({free}) chasch per Iiladigslink a Fründe vergäh.",
-  "home.limitNote": "Lauft d Ziit ab, übernimmt en Bot din Zug.",
+  "home.limitNote":
+    "Lauft d Ziit ab, übernimmt en Bot din Zug. Spielsch elei gäge Bots, lauft kei Uhr.",
   "home.limit.live": "Live 60 s",
   "home.limit.live.hint": "Für de Spilabig",
   "home.limit.cosy": "Gmüetlich 5 min",

@@ -145,7 +145,8 @@ export const fr = {
   "home.addBot": "+ Ajouter un bot",
   "home.freeSeats":
     "Tu peux donner les places libres ({free}) à tes amis via le lien d'invitation.",
-  "home.limitNote": "Quand le temps est écoulé, un bot joue le tour.",
+  "home.limitNote":
+    "Quand le temps est écoulé, un bot joue le tour. Seul contre des bots, pas de chrono.",
   "home.limit.live": "En direct 60 s",
   "home.limit.live.hint": "Pour la soirée jeux",
   "home.limit.cosy": "Tranquille 5 min",

@@ -142,7 +142,8 @@ export const en = {
   "home.removeBot": "Remove bot",
   "home.addBot": "+ Add bot",
   "home.freeSeats": "You can give the free seats ({free}) to friends via the invite link.",
-  "home.limitNote": "When time runs out, a bot takes over the turn.",
+  "home.limitNote":
+    "When time runs out, a bot takes over the turn. Playing alone against bots, there is no clock.",
   "home.limit.live": "Live 60 s",
   "home.limit.live.hint": "For game night",
   "home.limit.cosy": "Relaxed 5 min",

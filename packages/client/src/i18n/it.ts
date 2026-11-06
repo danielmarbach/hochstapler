@@ -143,7 +143,8 @@ export const it = {
   "home.removeBot": "Rimuovi il bot",
   "home.addBot": "+ Aggiungi un bot",
   "home.freeSeats": "Puoi dare i posti liberi ({free}) agli amici tramite il link d'invito.",
-  "home.limitNote": "Quando il tempo scade, un bot gioca il turno.",
+  "home.limitNote":
+    "Quando il tempo scade, un bot gioca il turno. Da solo contro i bot non c'è cronometro.",
   "home.limit.live": "Dal vivo 60 s",
   "home.limit.live.hint": "Per la serata di giochi",
   "home.limit.cosy": "Tranquillo 5 min",
