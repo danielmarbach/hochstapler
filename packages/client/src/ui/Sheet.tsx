@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { t, type UiKey } from "../i18n/index.ts";
 import { useApp } from "../net/store.ts";
-import { sendAction } from "../net/ws.ts";
 import { ActionBar } from "./Actions.tsx";
+import { BankruptcyDialog } from "./Bankruptcy.tsx";
 import { PlayerPanels, useTurn } from "./Hud.tsx";
 import { PropertyList } from "./Property.tsx";
 import { TradeInbox } from "./Trade.tsx";
@@ -42,6 +42,7 @@ export function BottomSheet() {
   const unread = useUnreadChat();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("players");
+  const [givingUp, setGivingUp] = useState(false);
   const tabs = TABS.filter((item) => item.id !== "securities" || state.market !== undefined);
   const [drag, setDrag] = useState<number | null>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -236,15 +237,12 @@ export function BottomSheet() {
                 <button
                   class="danger"
                   data-testid="sheet-give-up"
-                  onClick={() => {
-                    if (confirm(t("confirm.giveUp"))) {
-                      sendAction({ type: "declare-bankruptcy" });
-                    }
-                  }}
+                  onClick={() => setGivingUp(true)}
                 >
                   {t("sheet.giveUp")}
                 </button>
               )}
+              {givingUp && <BankruptcyDialog kind="giveUp" onClose={() => setGivingUp(false)} />}
             </>
           )}
           {tab === "props" &&

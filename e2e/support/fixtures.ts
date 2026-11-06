@@ -276,7 +276,6 @@ export class World {
       });
     });
     const page = await context.newPage();
-    page.on("dialog", (dialog) => void dialog.accept());
     page.on("pageerror", (e) => console.error(`[${name}] pageerror:`, e.message));
     const actor = new Actor(name, context, page, phone ? "phone" : this.layout);
     await actor.controlConnection();

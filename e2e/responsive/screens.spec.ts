@@ -278,6 +278,7 @@ test.describe("Game", () => {
       },
     });
     await table.actor.action("bankrupt").click();
+    await table.actor.testId("bankrupt-confirm").click();
     await expect(table.actor.testId("game-over")).toBeVisible();
     await expect(table.actor.testId("winner")).toContainText("Ben");
     await verifyScreen(page, device, "game-over", { scope: GAME_OVER });
@@ -289,6 +290,25 @@ test.describe("Game", () => {
     await expect(table.actor.testId("end-game-dialog")).toBeVisible();
     await expectVisibleWithoutScrolling(table.actor.testId("end-game-start"), "Start vote");
     await verifyScreen(page, device, "end-game-dialog", { scope: END_GAME_DIALOG });
+  });
+
+  test("Bankruptcy confirmation", async ({ table }) => {
+    await table.patch({
+      players: { [table.playerId("Anna")]: { cash: 50 } },
+      phase: {
+        type: "debt",
+        debtor: table.playerId("Anna"),
+        creditor: table.playerId("Ben"),
+        amount: 900,
+      },
+    });
+    await table.actor.action("bankrupt").click();
+    await expect(table.actor.testId("bankrupt-dialog")).toBeVisible();
+    await expectVisibleWithoutScrolling(table.actor.testId("bankrupt-cancel"), "Cancel");
+    await expectVisibleWithoutScrolling(
+      table.actor.testId("bankrupt-confirm"),
+      "Declare bankruptcy",
+    );
   });
 
   test("End-game vote (banner)", async ({ page, device, table }) => {

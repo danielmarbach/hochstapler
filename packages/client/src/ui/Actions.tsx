@@ -16,11 +16,21 @@ import { sendAction } from "../net/ws.ts";
 import { set, useApp } from "../net/store.ts";
 import { asGame, money, useTheme } from "./util.tsx";
 import { useGate } from "./gate.ts";
+import { BankruptcyDialog, type BankruptcyKind } from "./Bankruptcy.tsx";
+import { debtCreditorName, debtShortfall } from "./debt.ts";
 
 /** pre-filled auto-bid maximum: this far above the current highest bid (bounded by what the player can raise) */
 const AUTO_BID_DEFAULT_ROOM = 100;
 /** quick raises next to the bid slider */
 const BID_STEPS = [10, 50] as const;
+
+/** "You owe Ben CHF 900 · you are CHF 850 short": whom the debt is owed to (null = bank) and what the cash does not cover */
+function debtLine(creditor: string | null, amount: string, missing: string | null): string {
+  const owed = creditor
+    ? t("action.debtTo", { name: creditor, amount })
+    : t("action.debtToBank", { amount });
+  return missing ? `${owed} · ${t("action.debtMissing", { amount: missing })}` : owed;
+}
 
 /** `compact`: only the primary action buttons (phone bottom sheet, which carries the secondary buttons as tabs) */
 export function ActionBar({ compact = false }: { compact?: boolean }) {
@@ -52,6 +62,7 @@ function ActionBarFor({
   const can = (t: GameAction["type"]) => !busy && !gate.blocked && legal.includes(t);
   const act = (a: GameAction) => sendAction(a);
 
+  const [confirming, setConfirming] = useState<BankruptcyKind | null>(null);
   const [bid, setBid] = useState(0);
   const hb = phase.type === "auction" ? phase.auction.highestBid : 0;
   useEffect(() => {
@@ -250,7 +261,13 @@ function ActionBarFor({
     main = (
       <div class="buy">
         <div class="atitle debt" data-testid="debt-notice">
-          {t("action.debt", { amount: money(theme, phase.amount) })}{" "}
+          {debtLine(
+            debtCreditorName(phase.creditor, state.players),
+            money(theme, phase.amount),
+            debtShortfall(phase.amount, me.cash) > 0
+              ? money(theme, debtShortfall(phase.amount, me.cash))
+              : null,
+          )}{" "}
           <small>
             {t(
               state.settings.securities && holdingsOf(me).length > 0
@@ -264,9 +281,7 @@ function ActionBarFor({
             class="ghost bankrupt"
             data-testid="action-bankrupt"
             disabled={!can("declare-bankruptcy")}
-            onClick={() => {
-              if (confirm(t("confirm.bankrupt"))) act({ type: "declare-bankruptcy" });
-            }}
+            onClick={() => setConfirming("debt")}
           >
             {t("action.bankrupt")}
           </button>
@@ -339,11 +354,15 @@ function ActionBarFor({
         {gate.reason}
       </p>
     ) : null;
+  const confirmDialog = confirming && (
+    <BankruptcyDialog kind={confirming} onClose={() => setConfirming(null)} />
+  );
   if (compact) {
     return (
       <div class="actionbar compact">
         {main}
         {gateNote}
+        {confirmDialog}
       </div>
     );
   }
@@ -353,6 +372,7 @@ function ActionBarFor({
         {main}
         {gateNote}
       </div>
+      {confirmDialog}
       <div class="asec">
         <button
           class="pill"
@@ -383,12 +403,11 @@ function ActionBarFor({
         {legal.includes("declare-bankruptcy") ? null : (
           <button
             class="x"
+            data-testid="action-give-up"
             title={t("action.bankruptTitle")}
             aria-label={t("action.bankruptTitle")}
             disabled={busy || me.bankrupt}
-            onClick={() => {
-              if (confirm(t("confirm.giveUp"))) act({ type: "declare-bankruptcy" });
-            }}
+            onClick={() => setConfirming("giveUp")}
           >
             ⚑
           </button>
