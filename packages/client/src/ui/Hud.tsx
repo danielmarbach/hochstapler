@@ -26,6 +26,7 @@ import {
   fmtTime,
   nav,
   Postmark,
+  PresenceDot,
   Swatch,
   useLayout,
   useGameState,
@@ -262,14 +263,7 @@ function Badge({ p, online }: { p: PlayerState; online: boolean }) {
         {t("badge.away")}
       </span>
     );
-  return (
-    <span
-      class={`dot ${online ? "on" : ""}`}
-      data-testid="player-online"
-      data-online={online}
-      title={online ? t("common.online") : t("common.offline")}
-    />
-  );
+  return <PresenceDot online={online} testId="player-online" />;
 }
 
 /** colour-group stamps for the passport: outlined = some streets, filled with star = full colour set */
@@ -390,16 +384,19 @@ export function PlayerPanels({
                 <ul class="stamps" aria-label={t("hud.stamps")}>
                   {stamps.map((st) => {
                     const full = st.owned === st.total;
+                    // a tooltip does not exist on touch or for screen readers: the label carries the same words
+                    const label = t(full ? "hud.stampFull" : "hud.stamp", {
+                      group: texts.groupNames[st.group] ?? "",
+                      owned: st.owned,
+                      total: st.total,
+                    });
                     return (
                       <li
                         key={st.group}
                         class={`mini-stamp ${full ? "full" : ""}`}
                         style={{ "--sc": st.color, "--st": inkOn(st.color) }}
-                        title={t(full ? "hud.stampFull" : "hud.stamp", {
-                          group: texts.groupNames[st.group] ?? "",
-                          owned: st.owned,
-                          total: st.total,
-                        })}
+                        aria-label={label}
+                        title={label}
                       >
                         {full ? "★" : st.owned}
                       </li>
@@ -449,9 +446,10 @@ export function useTurn(): {
 function TurnBanner() {
   const { who, mover, left, round, jackpot } = useTurn();
   return (
-    <div class="turn panel" role="status" data-testid="turn-banner">
-      {who && <span class="tdot" style={{ background: who.color }} />}
-      <div>
+    <div class="turn panel" data-testid="turn-banner">
+      {who && <span class="tdot" style={{ background: who.color }} aria-hidden="true" />}
+      {/* only the turn and the round are announced: the ticking countdown below stays out of the live region */}
+      <div role="status">
         <div class="tname" data-testid="turn-name">
           {who
             ? mover
@@ -465,7 +463,11 @@ function TurnBanner() {
           {jackpot}
         </div>
       </div>
-      {left !== null && <div class={`count ${left < 10 ? "hot" : ""}`}>{fmtTime(left)}</div>}
+      {left !== null && (
+        <div class={`count ${left < 10 ? "hot" : ""}`} role="timer">
+          {fmtTime(left)}
+        </div>
+      )}
     </div>
   );
 }

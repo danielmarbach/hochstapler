@@ -9,6 +9,7 @@ const FOCUS_TARGETS: Record<string, string> = {
   "the trade button": "open-trade",
   "the menu button": "menu-toggle",
   Cancel: "end-game-cancel",
+  "Cancel removal": "remove-seat-cancel",
   No: "end-vote-no",
   "the card heading": "card-heading",
   "the results heading": "winner",

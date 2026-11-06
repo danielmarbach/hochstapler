@@ -4,10 +4,11 @@ import { t } from "../i18n/index.ts";
 import { getLang } from "../i18n/lang.ts";
 import { api } from "../net/api.ts";
 import { getInvite, toast, useApp } from "../net/store.ts";
-import { BOT_LEVELS, errMsg, Swatch } from "./util.tsx";
+import { BOT_LEVELS, errMsg, PresenceDot, Swatch } from "./util.tsx";
 import { DeviceLinkButton } from "./DeviceLink.tsx";
 import { CHAT_MODE_LABEL, ChatHostControls } from "./ChatControls.tsx";
 import { Backdrop } from "./Backdrop.tsx";
+import { Modal } from "./Modal.tsx";
 import { PosterBand } from "./Poster.tsx";
 import { Toasts } from "./Toasts.tsx";
 import { TokenPicker } from "./TokenPicker.tsx";
@@ -43,6 +44,8 @@ export function Lobby() {
   const presence = useApp((s) => s.presence);
   const [level, setLevel] = useState<BotLevel>("normal");
   const [busy, setBusy] = useState(false);
+  /** the human seat the host is about to remove (asked first; a bot goes at once) */
+  const [removing, setRemoving] = useState<{ playerId: string; name: string } | null>(null);
   if (!lobby)
     return (
       <div class="page center">
@@ -138,17 +141,19 @@ export function Lobby() {
                     })}
                   </span>
                 ) : (
-                  <span
-                    class={`dot ${s.connected || presence.includes(s.playerId) ? "on" : ""}`}
-                    title={t("common.online")}
-                  />
+                  <PresenceDot online={s.connected || presence.includes(s.playerId)} />
                 )}
                 {host && s.playerId !== you && (
                   <button
                     class="x"
+                    data-testid="remove-seat"
                     aria-label={t("lobby.removeSeat", { name: s.name })}
                     disabled={busy}
-                    onClick={() => run(() => api.removeSeat(lobby.gameId, s.playerId))}
+                    onClick={() =>
+                      s.kind === "bot"
+                        ? run(() => api.removeSeat(lobby.gameId, s.playerId))
+                        : setRemoving({ playerId: s.playerId, name: s.name })
+                    }
                   >
                     ×
                   </button>
@@ -232,6 +237,40 @@ export function Lobby() {
           )}
         </div>
       </div>
+      {removing && (
+        <Modal
+          class="modal-bg compact"
+          label={t("lobby.removeSeatTitle", { name: removing.name })}
+          onClose={() => setRemoving(null)}
+        >
+          <div class="panel dialog" data-testid="remove-seat-dialog">
+            <h2>{t("lobby.removeSeatTitle", { name: removing.name })}</h2>
+            <p>{t("lobby.removeSeatBody", { name: removing.name })}</p>
+            <div class="dialog-actions">
+              <button
+                class="cta slim"
+                data-testid="remove-seat-confirm"
+                onClick={() => {
+                  const { playerId } = removing;
+                  setRemoving(null);
+                  void run(() => api.removeSeat(lobby.gameId, playerId));
+                }}
+              >
+                {t("lobby.removeSeat", { name: removing.name })}
+              </button>
+              {/* the safe answer has the focus: a destructive confirmation never starts on "yes" */}
+              <button
+                class="ghost"
+                data-testid="remove-seat-cancel"
+                data-autofocus
+                onClick={() => setRemoving(null)}
+              >
+                {t("lobby.removeSeatCancel")}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

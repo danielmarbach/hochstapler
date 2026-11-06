@@ -171,6 +171,10 @@ export const gsw = {
   "lobby.host": "Host",
   "lobby.botBadge": "Bot · {level}",
   "lobby.removeSeat": "{name} entferne",
+  "lobby.removeSeatTitle": "{name} vom Tisch entferne?",
+  "lobby.removeSeatBody":
+    "{name} verliert de Platz und chan nume mit em Iiladigslink wider mitmache.",
+  "lobby.removeSeatCancel": "Bhalte",
   "lobby.freeSeat": "Freie Platz",
   "lobby.inviteLink": "Iiladigslink",
   "lobby.copyLink": "Link kopiere",
