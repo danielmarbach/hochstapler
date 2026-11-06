@@ -19,6 +19,19 @@ Then(
   },
 );
 
+Then(
+  "the removal confirmation of {player} offers the destructive action before the safe cancel",
+  async ({ world }, host: string) => {
+    const buttons = world
+      .get(host)
+      .testId("remove-seat-dialog")
+      .locator(".dialog-actions > button");
+    await expect(buttons.nth(0)).toHaveAttribute("data-testid", "remove-seat-confirm");
+    await expect(buttons.nth(0)).toHaveClass(/\bdanger\b/);
+    await expect(buttons.nth(1)).toHaveAttribute("data-testid", "remove-seat-cancel");
+  },
+);
+
 When("{player} confirms removing {player}", async ({ world }, host: string, guest: string) => {
   const actor = world.get(host);
   const dialog = actor.testId("remove-seat-dialog");

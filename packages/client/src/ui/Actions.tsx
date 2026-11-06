@@ -19,19 +19,40 @@ import { buyInfo } from "./buy-info.ts";
 import { asGame, money, useTheme, useThemeText } from "./util.tsx";
 import { useGate } from "./gate.ts";
 import { BankruptcyDialog, type BankruptcyKind } from "./Bankruptcy.tsx";
-import { debtCreditorName, debtShortfall } from "./debt.ts";
+import { debtCreditorName, debtShortfall, noBreak } from "./debt.ts";
 
 /** pre-filled auto-bid maximum: this far above the current highest bid (bounded by what the player can raise) */
 const AUTO_BID_DEFAULT_ROOM = 100;
 /** quick raises next to the bid slider */
 const BID_STEPS = [10, 50] as const;
 
-/** "You owe Ben CHF 900 · you are CHF 850 short": whom the debt is owed to (null = bank) and what the cash does not cover */
-function debtLine(creditor: string | null, amount: string, missing: string | null): string {
+/**
+ * "You owe Ben CHF 900 · you are CHF 850 short": whom the debt is owed to (null = bank) and what the cash does not cover.
+ * Both parts wrap as units and the amounts keep their currency, so a narrow phone never strands "CHF 380" on its own line.
+ */
+function DebtLine({
+  creditor,
+  amount,
+  missing,
+}: {
+  creditor: string | null;
+  amount: string;
+  missing: string | null;
+}) {
   const owed = creditor
-    ? t("action.debtTo", { name: creditor, amount })
-    : t("action.debtToBank", { amount });
-  return missing ? `${owed} · ${t("action.debtMissing", { amount: missing })}` : owed;
+    ? t("action.debtTo", { name: creditor, amount: noBreak(amount) })
+    : t("action.debtToBank", { amount: noBreak(amount) });
+  return (
+    <span class="debt-line">
+      <span class="debt-part">{missing ? `${owed}\u00a0·` : owed}</span>
+      {missing && (
+        <>
+          {" "}
+          <span class="debt-part">{t("action.debtMissing", { amount: noBreak(missing) })}</span>
+        </>
+      )}
+    </span>
+  );
 }
 
 /** `compact`: only the primary action buttons (phone bottom sheet, which carries the secondary buttons as tabs) */
@@ -290,13 +311,15 @@ function ActionBarFor({
     main = (
       <div class="buy">
         <div class="atitle debt" data-testid="debt-notice">
-          {debtLine(
-            debtCreditorName(phase.creditor, state.players),
-            money(theme, phase.amount),
-            debtShortfall(phase.amount, me.cash) > 0
-              ? money(theme, debtShortfall(phase.amount, me.cash))
-              : null,
-          )}{" "}
+          <DebtLine
+            creditor={debtCreditorName(phase.creditor, state.players)}
+            amount={money(theme, phase.amount)}
+            missing={
+              debtShortfall(phase.amount, me.cash) > 0
+                ? money(theme, debtShortfall(phase.amount, me.cash))
+                : null
+            }
+          />{" "}
           <small>
             {t(
               state.settings.securities && holdingsOf(me).length > 0

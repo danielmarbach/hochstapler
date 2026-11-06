@@ -1561,6 +1561,11 @@ button.chip.on {
   align-items: flex-start;
   gap: 4px;
 }
+/* the debt and the shortfall each move to the next line as a whole; only a part longer than the bar breaks inside */
+.debt-part {
+  display: inline-block;
+  max-width: 100%;
+}
 /* buy offer: rent, colour progress and cash after buying as one wrapping line of facts */
 .buyinfo {
   list-style: none;

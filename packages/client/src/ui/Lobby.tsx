@@ -248,7 +248,7 @@ export function Lobby() {
             <p>{t("lobby.removeSeatBody", { name: removing.name })}</p>
             <div class="dialog-actions">
               <button
-                class="cta slim"
+                class="danger"
                 data-testid="remove-seat-confirm"
                 onClick={() => {
                   const { playerId } = removing;

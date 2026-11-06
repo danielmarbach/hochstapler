@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { debtAfterSale, debtCreditorName, debtShortfall } from "../src/ui/debt.ts";
+import { debtAfterSale, debtCreditorName, debtShortfall, noBreak } from "../src/ui/debt.ts";
 
 describe("debt arithmetic (T10)", () => {
   it("the shortfall is what the cash does not cover", () => {
@@ -31,5 +31,16 @@ describe("debt notice creditor", () => {
 
   it("falls back to the bank for a creditor that is not at the table", () => {
     expect(debtCreditorName("p9", players)).toBeNull();
+  });
+});
+
+describe("debt notice line breaks", () => {
+  it("glues a money amount together with no-break spaces", () => {
+    expect(noBreak("CHF 1'250")).toBe("CHF\u00a01'250");
+    expect(noBreak("1\u00a0250 €")).toBe("1\u00a0250\u00a0€");
+  });
+
+  it("leaves text without spaces alone", () => {
+    expect(noBreak("-CHF")).toBe("-CHF");
   });
 });

@@ -15,10 +15,6 @@ export function BankruptcyDialog({ kind, onClose }: { kind: BankruptcyKind; onCl
         <h2>{title}</h2>
         <p>{t(kind === "debt" ? "confirm.bankrupt.body" : "confirm.giveUp.body")}</p>
         <div class="dialog-actions">
-          {/* the safe answer has the focus: an irreversible action never starts on "yes" */}
-          <button class="ghost" data-testid="bankrupt-cancel" data-autofocus onClick={onClose}>
-            {t("confirm.bankrupt.cancel")}
-          </button>
           <button
             class="danger"
             data-testid="bankrupt-confirm"
@@ -29,6 +25,10 @@ export function BankruptcyDialog({ kind, onClose }: { kind: BankruptcyKind; onCl
             }}
           >
             {t("confirm.bankrupt.confirm")}
+          </button>
+          {/* the safe answer has the focus: an irreversible action never starts on "yes" */}
+          <button class="ghost" data-testid="bankrupt-cancel" data-autofocus onClick={onClose}>
+            {t("confirm.bankrupt.cancel")}
           </button>
         </div>
       </div>

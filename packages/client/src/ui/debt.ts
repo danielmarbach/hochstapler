@@ -17,3 +17,8 @@ export function debtCreditorName(
 ): string | null {
   return players.find((p) => p.id === creditor)?.name ?? null;
 }
+
+/** Spaces become no-break spaces so a formatted amount ("CHF 900") never splits across lines. */
+export function noBreak(text: string): string {
+  return text.replace(/ /g, "\u00a0");
+}

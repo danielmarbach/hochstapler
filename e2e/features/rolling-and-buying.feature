@@ -20,7 +20,7 @@ Feature: Rolling, moving and buying properties
     When Anna rolls
     Then Anna is offered the chance to buy "Weggisgasse"
     And Anna sees a rent of 4 in the buy offer
-    And Anna sees the colour progress "Luzern: 1 von 3" in the buy offer
+    And Anna sees the colour progress "mit Kauf: Luzern 1/3" in the buy offer
     And Anna sees a balance of 1'900 after buying in the buy offer
 
   Scenario: The buy offer tells when the purchase completes the colour set
@@ -29,7 +29,7 @@ Feature: Rolling, moving and buying properties
     When Anna rolls
     Then Anna is offered the chance to buy "Weggisgasse"
     And Anna sees a rent of 8 in the buy offer
-    And Anna sees the colour progress "Luzern: 3 von 3 · komplett" in the buy offer
+    And Anna sees the colour progress "mit Kauf: Luzern komplett" in the buy offer
     And Anna sees a balance of 1'900 after buying in the buy offer
 
   Scenario: Ben pays Anna rent

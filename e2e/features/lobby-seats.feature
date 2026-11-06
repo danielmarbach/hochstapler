@@ -8,6 +8,7 @@ Feature: Removing a player from the lobby
     When Anna opens the lobby
     And Anna asks to remove Ben from the lobby
     Then Anna is asked to confirm removing Ben
+    And the removal confirmation of Anna offers the destructive action before the safe cancel
     And the keyboard focus of Anna is on "Cancel removal"
     When Anna presses Escape
     Then Anna is no longer asked to confirm removing a player
