@@ -2928,6 +2928,14 @@ dialog.modal-bg .endvote {
   .sheet .actionbar.compact .btns > button {
     flex: 1 1 130px;
   }
+  /* debt: bankruptcy is the way out of last resort, a quiet text button instead of the dominant full-width block */
+  .sheet .actionbar.compact .btns > .ghost.bankrupt {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    background: none;
+    border-color: transparent;
+    text-decoration: underline;
+  }
   .sheet .actionbar.compact .bidrow {
     display: grid;
     grid-template-columns: 1fr 1fr;

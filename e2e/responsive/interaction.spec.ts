@@ -362,3 +362,42 @@ test.describe("Debt with securities (T10)", () => {
     await expect(table.actor.testId("lot-after-sale")).toContainText("gedeckt");
   });
 });
+
+test.describe("Debt notice and bankruptcy button", () => {
+  test.beforeEach(async ({ table }) => {
+    await table.startGame();
+    await table.patch({
+      players: { [table.playerId("Anna")]: { cash: 50 } },
+      phase: {
+        type: "debt",
+        debtor: table.playerId("Anna"),
+        creditor: table.playerId("Ben"),
+        amount: 900,
+      },
+    });
+  });
+
+  test("the notice names the creditor and the shortfall", async ({ table }) => {
+    await expect(table.actor.testId("debt-notice")).toContainText(
+      "Du schuldest Ben CHF 900 · es fehlen CHF 850",
+    );
+  });
+
+  test("bankruptcy is a compact secondary control, not a full-width button", async ({
+    page,
+    table,
+  }) => {
+    const bankrupt = table.actor.action("bankrupt");
+    await expect(bankrupt).toBeVisible();
+    const box = await bankrupt.boundingBox();
+    const viewport = page.viewportSize();
+    expect(box && viewport, "button and viewport are measurable").toBeTruthy();
+    if (!box || !viewport) {
+      return;
+    }
+    expect(box.height, "touch target height").toBeGreaterThanOrEqual(MIN_TARGET);
+    expect(box.width, "not a dominant full-width button").toBeLessThanOrEqual(viewport.width / 2);
+    expect(box.x, "reachable inside the viewport").toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, "reachable inside the viewport").toBeLessThanOrEqual(viewport.width);
+  });
+});

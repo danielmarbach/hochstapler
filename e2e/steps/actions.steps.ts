@@ -58,8 +58,32 @@ When("{player} closes the event card", async ({ world }, name: string) => {
   await expect(popup).toBeHidden();
 });
 
-When("{player} declares bankruptcy", async ({ world }, name: string) => {
+When("{player} asks to declare bankruptcy", async ({ world }, name: string) => {
   await world.get(name).action("bankrupt").click();
+});
+
+When("{player} asks to give up from the sheet", async ({ world }, name: string) => {
+  const actor = world.get(name);
+  await actor.openSheetTab("players");
+  await actor.testId("sheet-give-up").click();
+});
+
+When("{player} asks to give up with the flag", async ({ world }, name: string) => {
+  await world.get(name).action("give-up").click();
+});
+
+When("{player} confirms the bankruptcy", async ({ world }, name: string) => {
+  await world.get(name).testId("bankrupt-confirm").click();
+});
+
+When("{player} cancels the bankruptcy", async ({ world }, name: string) => {
+  await world.get(name).testId("bankrupt-cancel").click();
+});
+
+When("{player} declares bankruptcy", async ({ world }, name: string) => {
+  const actor = world.get(name);
+  await actor.action("bankrupt").click();
+  await actor.testId("bankrupt-confirm").click();
 });
 
 When("{player} reloads the page", async ({ world }, name: string) => {

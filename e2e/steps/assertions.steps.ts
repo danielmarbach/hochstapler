@@ -58,6 +58,24 @@ Then("it is {player}'s turn to bid", async ({ world }, name: string) => {
   await expect(world.get(name).testId("bid-slider")).toBeVisible();
 });
 
+Then("{player} sees the debt notice {string}", async ({ world }, name: string, text: string) => {
+  await expect(world.get(name).testId("debt-notice")).toContainText(text);
+});
+
+Then("the debt notice of {player} says nothing is missing", async ({ world }, name: string) => {
+  const notice = world.get(name).testId("debt-notice");
+  await expect(notice).toContainText("Du schuldest");
+  await expect(notice).not.toContainText("fehlen");
+});
+
+Then("{player} sees the bankruptcy confirmation", async ({ world }, name: string) => {
+  await expect(world.get(name).testId("bankrupt-dialog")).toBeVisible();
+});
+
+Then("the bankruptcy confirmation of {player} is closed", async ({ world }, name: string) => {
+  await expect(world.get(name).testId("bankrupt-dialog")).toBeHidden();
+});
+
 Then("{player} sees the notice that he/she has to raise money", async ({ world }, name: string) => {
   await expect(world.get(name).testId("debt-notice")).toBeVisible();
 });

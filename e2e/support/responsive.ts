@@ -283,7 +283,6 @@ export const test = base.extend<Fixtures>({
       (route) => route.abort(),
     );
     page.on("pageerror", (e) => console.error("pageerror:", e.message));
-    page.on("dialog", (dialog) => void dialog.accept());
     await use(page);
   },
   device: async ({ viewport, hasTouch }, use) => {

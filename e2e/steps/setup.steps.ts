@@ -118,6 +118,13 @@ Given("the next card from the deck is {string}", async ({ world }, card: string)
   await world.patch({ nextCard: { [deck]: id } });
 });
 
+Given("{player} owes the bank {amount}", async ({ world }, debtor: string, amount: number) => {
+  await world.patch({
+    current: world.playerId(debtor),
+    phase: { type: "debt", debtor: world.playerId(debtor), creditor: null, amount },
+  });
+});
+
 Given(
   "{player} owes {player} {amount}",
   async ({ world }, debtor: string, creditor: string, amount: number) => {
