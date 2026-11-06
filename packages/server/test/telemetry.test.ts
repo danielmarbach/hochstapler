@@ -12,6 +12,7 @@ import {
   AutoPlayer,
   TestClient,
   createGame,
+  joinGame,
   sleep,
   startGame,
   startTestServer,
@@ -381,9 +382,10 @@ describe("telemetry signals: broadcast, game context, errors, lifecycle, bots", 
   it("a player who misses turns goes away: event on the timeout action, the bot takes over", async () => {
     const host = await createGame(ts, {
       bots: ["easy"],
-      maxPlayers: 2,
+      maxPlayers: 3,
       settings: { turnTimeoutSec: 1, awayAfterMissedTurns: 1 },
     });
+    await joinGame(ts, host, "Ben"); // a second human keeps the clock running (#100)
     const client = await TestClient.connect(ts, host.gameId, host.token);
     await startGame(ts, host);
     await client.untilState((s) => s.players.some((p) => p.controller === "away"), 8000);

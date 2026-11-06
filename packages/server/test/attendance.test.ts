@@ -89,9 +89,10 @@ describe("a game without a connected human waits", () => {
     ts = await startTestServer();
     const host = await createGame(ts, {
       bots: ["normal"],
-      maxPlayers: 2,
+      maxPlayers: 3,
       settings: { turnTimeoutSec: 1, awayAfterMissedTurns: 5 },
     });
+    await joinGame(ts, host, "Ben"); // a second human keeps the clock running (#100)
     const a0 = await TestClient.join(ts, host);
     await startGame(ts, host);
     const s0 = await a0.untilState(() => true);

@@ -282,9 +282,13 @@ describe("bots", () => {
       hostName: "H",
       settings: { turnTimeoutSec: 1 },
       bots: ["normal"],
-      maxPlayers: 2,
+      maxPlayers: 3,
     });
-    const { gameId, playerToken } = c.json;
+    const { gameId, playerToken, inviteCode } = c.json;
+    // a second human keeps the clock running for H (it only runs while another human waits, docs/DESIGN.md #100)
+    expect(
+      (await api("POST", `/api/games/${gameId}/join`, { name: "Ben", inviteCode })).status,
+    ).toBe(201);
     // a connected human keeps the timers running (a game nobody is connected to waits, docs/DESIGN.md #60)
     const host = await connect(gameId, playerToken);
     await host.waitFor("welcome");

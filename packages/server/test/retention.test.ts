@@ -289,9 +289,10 @@ describe("Hub: sweep of a live server", () => {
     const host = await createGame(ts, {
       host: "Anna",
       bots: ["normal"],
-      maxPlayers: 2,
+      maxPlayers: 3,
       settings: { turnTimeoutSec: 1, awayAfterMissedTurns: 9 },
     });
+    await joinGame(ts, host, "Ben"); // a second human keeps the clock running (#100)
     const a = await TestClient.join(ts, host);
     const { db } = ts.srv.hub;
     await startGame(ts, host);

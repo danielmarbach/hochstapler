@@ -154,11 +154,15 @@ describe("Protzmodus: loans over WebSocket", () => {
     const seat = await createGame(ts, {
       host: "Anna",
       bots: ["normal", "hard"],
-      settings: { loans: true, maxRounds: 3, turnTimeoutSec: 1, awayAfterMissedTurns: 1 },
+      settings: { loans: true, maxRounds: 3 },
     });
-    // Anna stays connected (a game waits while no human is, docs/DESIGN.md #60), misses her turns and goes away
+    // Anna stays connected (a game waits while no human is, docs/DESIGN.md #60) but is away, so the bots play for her
     const spectator = await TestClient.join(ts, seat);
     await startGame(ts, seat);
+    const away = await ts.api("POST", `/api/test/games/${seat.gameId}/state`, {
+      players: { [seat.playerId]: { controller: "away" } },
+    });
+    expect(away.status).toBe(200);
     const done = await spectator.untilState((x) => x.status === "finished", 40_000);
     expect(done.settings.loans).toBe(true);
     await spectator.close();

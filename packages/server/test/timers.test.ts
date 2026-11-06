@@ -4,6 +4,7 @@ import {
   AutoPlayer,
   TestClient,
   createGame,
+  joinGame,
   settle,
   sleep,
   startGame,
@@ -31,13 +32,13 @@ const cashTrade = (to: string, give: number, want: number): TradeOffer => ({
 describe("4. turn timeout, away and return", () => {
   it("bot takes over on timeout, player becomes away after N misses and human again on own action (not on bot moves)", async () => {
     ts = await startTestServer({ botDelayMs: 40 });
-    const host = await createGame(ts, {
+    // the clock only runs while another human waits (#100): Ben plays along, Anna (p1) never acts
+    const t = await startedTable(ts, {
       bots: ["normal"],
-      maxPlayers: 2,
       settings: { turnTimeoutSec: 1, awayAfterMissedTurns: 2 },
     });
-    const a = await TestClient.join(ts, host);
-    await startGame(ts, host);
+    const a = t.a;
+    new AutoPlayer(t.b, t.friend.playerId, 3, { extraRate: 0 });
     const s0 = await a.untilState(() => true);
     expect(s0.deadline).not.toBeNull();
     expect(s0.players[0]!.controller).toBe("human");
@@ -67,7 +68,7 @@ describe("4. turn timeout, away and return", () => {
 
     // the human acts again (a trade proposal is legal at any time) -> human, missedTurns reset, in a single update
     const m = a.mark();
-    a.act({ type: "propose-trade", offer: cashTrade("p2", 5, 0) });
+    a.act({ type: "propose-trade", offer: cashTrade("p3", 5, 0) });
     const back = await a.until(
       (x) =>
         x.t === "update" && x.events.some((e) => e.type === "controller" && e.playerId === "p1"),
@@ -77,8 +78,31 @@ describe("4. turn timeout, away and return", () => {
     expect(back.t === "update" && back.state.players[0]!.controller).toBe("human");
     expect(back.t === "update" && back.state.players[0]!.missedTurns).toBe(0);
     expect(a.errors()).toEqual([]);
-    await a.close();
+    await Promise.all([a.close(), t.b.close()]);
   }, 20_000);
+
+  it("a lone human with bots gets no deadline and is never taken over or sent away (#100)", async () => {
+    ts = await startTestServer({ botDelayMs: 40 });
+    const host = await createGame(ts, {
+      bots: ["normal", "easy"],
+      maxPlayers: 3,
+      settings: { turnTimeoutSec: 1, awayAfterMissedTurns: 1 },
+    });
+    const a = await TestClient.join(ts, host);
+    await startGame(ts, host);
+    const s0 = await a.untilState(() => true);
+    expect(s0.players[s0.current]!.id).toBe(host.playerId);
+    expect(s0.deadline).toBeNull();
+    await sleep(2500); // well past the 1 s limit and the one missed turn that would send them away
+    const room = ts.srv.hub.get(host.gameId)!;
+    expect(room.state!.version).toBe(s0.version);
+    expect(room.state!.current).toBe(s0.current);
+    expect(room.state!.deadline).toBeNull();
+    expect(room.state!.players[0]!.controller).toBe("human");
+    expect(room.state!.players[0]!.missedTurns).toBe(0);
+    expect(a.errors()).toEqual([]);
+    await a.close();
+  }, 15_000);
 
   it("returning from away restarts the turn timer from the real clock", async () => {
     ts = await startTestServer({ botDelayMs: 400 });
@@ -114,13 +138,12 @@ describe("4. turn timeout, away and return", () => {
 
   it("a rejected action from an away player does not bring them back", async () => {
     ts = await startTestServer({ botDelayMs: 40 });
-    const host = await createGame(ts, {
+    // Ben is the second human who makes Anna's clock run (#100); he never acts
+    const t = await startedTable(ts, {
       bots: ["normal"],
-      maxPlayers: 2,
       settings: { turnTimeoutSec: 1, awayAfterMissedTurns: 1 },
     });
-    const a = await TestClient.join(ts, host);
-    await startGame(ts, host);
+    const a = t.a;
     await a.untilState((s) => s.players[0]!.controller === "away", 4000);
     const m = a.mark();
     a.act({ type: "declare-bankruptcy" }); // never legal here
@@ -128,7 +151,7 @@ describe("4. turn timeout, away and return", () => {
     await a.until((x) => x.t === "error", 2000, m);
     await sleep(150);
     expect(a.state!.players[0]!.controller).toBe("away");
-    await a.close();
+    await Promise.all([a.close(), t.b.close()]);
   }, 15_000);
 });
 
@@ -230,9 +253,10 @@ describe("6. server restart", () => {
     ts = await startTestServer();
     const host = await createGame(ts, {
       bots: ["normal"],
-      maxPlayers: 2,
+      maxPlayers: 3,
       settings: { turnTimeoutSec: 1 },
     });
+    await joinGame(ts, host, "Ben"); // a second human keeps the clock running (#100); never connects
     const a0 = await TestClient.join(ts, host);
     await startGame(ts, host);
     const s0 = await a0.untilState(() => true);

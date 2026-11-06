@@ -129,6 +129,7 @@ describe("graceful shutdown for a deploy", () => {
   it("a restart on the same data dir keeps the running game, its deadline and its seats", async () => {
     ts = await startTestServer();
     const host = await createGame(ts, { bots: ["normal"], settings: { turnTimeoutSec: 600 } });
+    await joinGame(ts, host, "Ben"); // the clock only runs while another human waits (#100)
     await startGame(ts, host);
     const a = await TestClient.join(ts, host);
     const before = a.state!;
