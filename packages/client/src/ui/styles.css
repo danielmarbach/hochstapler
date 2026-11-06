@@ -1557,6 +1557,28 @@ button.chip.on {
 .atitle.debt {
   color: var(--bad);
 }
+/* buy offer: rent, colour progress and cash after buying as one wrapping line of facts */
+.buyinfo {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.buyinfo li {
+  min-width: 0;
+}
+.buyinfo .full {
+  color: var(--ink);
+  font-weight: 600;
+}
+.buyinfo .short {
+  color: var(--bad);
+  font-weight: 600;
+}
 .asub {
   font-size: 13.5px;
   color: var(--ink-2);
