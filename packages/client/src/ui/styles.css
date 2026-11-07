@@ -680,6 +680,58 @@ h1.small span {
 .pill.round.on {
   background: var(--gold);
 }
+/* drawn icons (icons.tsx): ink stroke in the colour of the surrounding text */
+.ico {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+}
+.ico.inline {
+  vertical-align: -2px;
+  margin-right: 3px;
+}
+/* an icon with its text or count stays in one piece ("U-Haft" must not break at the hyphen) */
+.ico-text {
+  white-space: nowrap;
+}
+/* toolbar and give-up buttons: icon only, the text label joins them where there is room (the name stays in aria-label).
+   The toolbar needs the desktop layout (above 1100px): on a tablet the centred turn banner leaves no space for four labels. */
+.tlabel {
+  display: none;
+  white-space: nowrap;
+}
+@media (min-width: 1101px) and (min-height: 501px) {
+  .pill.round.tool {
+    width: auto;
+    padding: 0 14px 0 12px;
+  }
+  .tool .tlabel {
+    display: inline;
+  }
+}
+@media (min-width: 1000px) and (min-height: 501px) {
+  .x.giveup {
+    width: auto;
+    padding: 0 14px 0 12px;
+    border-radius: var(--r);
+  }
+  .giveup .tlabel {
+    display: inline;
+  }
+}
+.pill.round.tool,
+.x.giveup {
+  gap: 8px;
+  font-family: var(--display);
+  font-size: 16px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.x.giveup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .danger {
   background: var(--bad);
   color: #fff;
@@ -809,6 +861,10 @@ h1.small span {
 .join > .field,
 .lobby > .field {
   width: auto;
+}
+/* the problem screens (link, gone) have no band above their heading */
+.join > h1.small:first-child {
+  margin-top: 24px;
 }
 .band {
   display: flex;

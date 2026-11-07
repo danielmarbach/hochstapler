@@ -47,7 +47,7 @@ export function ResumeProblem({ gameId }: { gameId: string | null }) {
       <Backdrop themeId="ch" offsetX={0.14} offsetY={-0.13} />
       <div class="page center right">
         <div class="panel join" role="alert" data-testid="resume-problem">
-          <div class="eyebrow">{t("resume.title")}</div>
+          <h1 class="small">{t("resume.title")}</h1>
           <p class="lead">{t(gameId ? "resume.rejected" : "resume.malformed")}</p>
           <p class="note">{t("resume.hint")}</p>
           {gameId && invite && (

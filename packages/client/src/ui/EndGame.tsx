@@ -10,6 +10,7 @@ import { sendAction } from "../net/ws.ts";
 import { asGame, fmtTime, useNow } from "./util.tsx";
 import { Modal } from "./Modal.tsx";
 import { useGate } from "./gate.ts";
+import { Icon } from "./icons.tsx";
 
 /** actions of `you` the engine accepts right now (empty when the state cannot be evaluated) */
 function useLegal(state: PublicGameState | null, you: string | null): GameAction["type"][] {
@@ -22,7 +23,7 @@ function useLegal(state: PublicGameState | null, you: string | null): GameAction
   }, [state, you]);
 }
 
-/** "⋯" button with the in-game menu; only players at the table see it */
+/** menu button (three dots) with the in-game menu; only players at the table see it */
 export function GameMenu({ children }: { children?: ComponentChildren }) {
   const state = useApp((s) => s.state);
   const you = useApp((s) => s.you);
@@ -44,7 +45,7 @@ export function GameMenu({ children }: { children?: ComponentChildren }) {
   return (
     <div class="gamemenu">
       <button
-        class={`pill round ${open ? "on" : ""}`}
+        class={`pill round tool ${open ? "on" : ""}`}
         data-testid="menu-toggle"
         title={t("menu.toggle")}
         aria-label={t("menu.toggle")}
@@ -52,7 +53,8 @@ export function GameMenu({ children }: { children?: ComponentChildren }) {
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        ⋯
+        <Icon name="menu" />
+        <span class="tlabel">{t("menu.toggle")}</span>
       </button>
       {open && (
         <div class="menu panel" role="menu" data-testid="game-menu">
@@ -84,7 +86,8 @@ export function GameMenu({ children }: { children?: ComponentChildren }) {
               setDeviceOpen(true);
             }}
           >
-            📲 {t("device.menu")}
+            <Icon name="phone" size={18} />
+            {t("device.menu")}
           </button>
         </div>
       )}
@@ -157,7 +160,6 @@ export function EndVoteBanner() {
   const left = vote.expiresAt === null ? null : (vote.expiresAt - now) / 1000;
   const body = (
     <div class="endvote panel" data-testid="end-vote" role={votable ? undefined : "status"}>
-      <div class="eyebrow">{t("endvote.label")}</div>
       <p class="ask">{mine ? t("endvote.own") : t("endvote.ask", { name: nameOf(vote.by) })}</p>
       <p class="who" data-testid="end-vote-agreed">
         {t("endvote.agreed", { names: agreed.join(", ") })}

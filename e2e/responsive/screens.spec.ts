@@ -74,6 +74,12 @@ test.describe("Start page and invitation", () => {
     await verifyScreen(page, device, "resume-problem");
   });
 
+  test("Game gone", async ({ page, device }) => {
+    await page.goto("/#/game/gibtsnicht");
+    await expect(page.getByTestId("game-gone")).toBeVisible();
+    await verifyScreen(page, device, "game-gone");
+  });
+
   test("Lobby (host with bots)", async ({ page, device, table }) => {
     const host = await table.createLobby(["easy", "normal"]);
     await table.openAs(host, "start-game");

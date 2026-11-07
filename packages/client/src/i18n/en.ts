@@ -166,7 +166,6 @@ export const en = {
   "home.creating": "Creating …",
 
   // ---- join ----
-  "join.eyebrow": "You have been invited",
   "join.lead": "{flag} {country} · {taken} of {max} seats taken",
   "join.nameRequired": "Please enter a name.",
   "join.submit": "Join",
@@ -178,7 +177,6 @@ export const en = {
 
   // ---- lobby ----
   "lobby.connecting": "Connecting …",
-  "lobby.eyebrow": "Lobby",
   "lobby.seats": "{taken} of {max} seats",
   "lobby.limit": "Turn limit {value}",
   "lobby.noLimit": "no turn limit",
@@ -201,6 +199,7 @@ export const en = {
 
   // ---- HUD ----
   "hud.followCam": "Camera follows the token",
+  "hud.followCamShort": "Camera",
   "hud.glow": "Glow",
   "hud.glowTitle": "Glow on/off",
   "hud.home": "Home",
@@ -209,9 +208,9 @@ export const en = {
   "hud.stamp": "{group}: {owned}/{total}",
   "hud.stampFull": "{group}: {owned}/{total} · full set",
   "player.meta": "{token} · {n} spaces",
-  "player.inJail": "🔒 Custody",
+  "player.inJail": "Custody",
   "badge.bankrupt": "Bankrupt",
-  "badge.bot": "🤖 Bot",
+  "badge.bot": "Bot",
   "badge.away": "Away (bot plays)",
   "turn.tag": "Your move",
   "turn.isOn": "{name}'s turn",
@@ -268,6 +267,7 @@ export const en = {
   "sheet.tab.trades": "Trade",
   "sheet.tab.log": "Log",
   "sheet.giveUp": "Give up (bankrupt)",
+  "action.giveUp": "Give up",
   "sheet.spectatorNoProps": "Spectators own nothing.",
 
   // ---- action bar ----

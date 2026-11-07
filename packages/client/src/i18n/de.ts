@@ -170,7 +170,6 @@ export const de = {
   "home.creating": "Wird erstellt …",
 
   // ---- join ----
-  "join.eyebrow": "Du wurdest eingeladen",
   "join.lead": "{flag} {country} · {taken} von {max} Plätzen belegt",
   "join.nameRequired": "Bitte gib einen Namen ein.",
   "join.submit": "Beitreten",
@@ -182,7 +181,6 @@ export const de = {
 
   // ---- lobby ----
   "lobby.connecting": "Verbinde …",
-  "lobby.eyebrow": "Lobby",
   "lobby.seats": "{taken} von {max} Plätzen",
   "lobby.limit": "Zuglimit {value}",
   "lobby.noLimit": "ohne Zuglimit",
@@ -206,6 +204,7 @@ export const de = {
 
   // ---- HUD ----
   "hud.followCam": "Kamera folgt der Figur",
+  "hud.followCamShort": "Kamera",
   "hud.glow": "Glow",
   "hud.glowTitle": "Glow an/aus",
   "hud.home": "Startseite",
@@ -214,9 +213,9 @@ export const de = {
   "hud.stamp": "{group}: {owned}/{total}",
   "hud.stampFull": "{group}: {owned}/{total} · Farbset",
   "player.meta": "{token} · {n} Felder",
-  "player.inJail": "🔒 U-Haft",
+  "player.inJail": "U-Haft",
   "badge.bankrupt": "Bankrott",
-  "badge.bot": "🤖 Bot",
+  "badge.bot": "Bot",
   "badge.away": "Abwesend (Bot spielt)",
   "turn.tag": "Am Zug",
   "turn.isOn": "{name} ist am Zug",
@@ -273,6 +272,7 @@ export const de = {
   "sheet.tab.trades": "Handel",
   "sheet.tab.log": "Log",
   "sheet.giveUp": "Aufgeben (Bankrott)",
+  "action.giveUp": "Aufgeben",
   "sheet.spectatorNoProps": "Zuschauer besitzen nichts.",
 
   // ---- action bar ----
