@@ -25,6 +25,8 @@ const DEVICE_LINK = '[data-testid="device-link-dialog"]';
 const CARD = '[data-testid="card-popup"]';
 const GAME_OVER = '[data-testid="game-over"]';
 const END_GAME_DIALOG = '[data-testid="end-game-dialog"]';
+const BANKRUPT_DIALOG = '[data-testid="bankrupt-dialog"]';
+const REMOVE_SEAT_DIALOG = '[data-testid="remove-seat-dialog"]';
 const END_VOTE = '[data-testid="end-vote"]';
 const LOAN = '[data-testid="loan-dialog"]';
 
@@ -91,6 +93,21 @@ test.describe("Start page and invitation", () => {
     await expect(page.getByTestId("seat")).toHaveCount(4);
     await expectTokenPickerSound(page, { tiles: 8, taken: 3 });
     await verifyScreen(page, device, "lobby-pieces-taken");
+  });
+
+  test("Lobby (host confirms removing a person)", async ({ page, device, table }) => {
+    const host = await table.createLobby(["easy"]);
+    await table.addGuest("Wolfgang-Amadeus Mo", "fondue");
+    await table.openAs(host, "start-game");
+    await page
+      .getByTestId("seat")
+      .filter({ hasText: "Wolfgang-Amadeus Mo" })
+      .getByTestId("remove-seat")
+      .click();
+    await expect(page.getByTestId("remove-seat-dialog")).toBeVisible();
+    await expectVisibleWithoutScrolling(page.getByTestId("remove-seat-confirm"), "Remove");
+    await expectVisibleWithoutScrolling(page.getByTestId("remove-seat-cancel"), "Cancel");
+    await verifyScreen(page, device, "remove-seat-dialog", { scope: REMOVE_SEAT_DIALOG });
   });
 });
 
@@ -292,7 +309,7 @@ test.describe("Game", () => {
     await verifyScreen(page, device, "end-game-dialog", { scope: END_GAME_DIALOG });
   });
 
-  test("Bankruptcy confirmation", async ({ table }) => {
+  test("Bankruptcy confirmation", async ({ page, device, table }) => {
     await table.patch({
       players: { [table.playerId("Anna")]: { cash: 50 } },
       phase: {
@@ -309,6 +326,7 @@ test.describe("Game", () => {
       table.actor.testId("bankrupt-confirm"),
       "Declare bankruptcy",
     );
+    await verifyScreen(page, device, "bankrupt-dialog", { scope: BANKRUPT_DIALOG });
   });
 
   test("End-game vote (banner)", async ({ page, device, table }) => {
