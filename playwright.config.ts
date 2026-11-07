@@ -28,6 +28,8 @@ export default defineConfig({
   testDir,
   // baselines live in the repo: e2e/__screenshots__/<project>/<screen>.png
   snapshotPathTemplate: "e2e/__screenshots__/{projectName}/{arg}{ext}",
+  // The baselines are rendered on macOS; Linux text rasterizes differently, so CI skips only the pixel comparison.
+  ignoreSnapshots: process.env["E2E_IGNORE_SNAPSHOTS"] === "1",
   fullyParallel: true,
   forbidOnly: !!process.env["CI"],
   retries: process.env["CI"] ? 1 : 0,

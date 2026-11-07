@@ -25,6 +25,8 @@ and coding agents: [AGENTS.md](AGENTS.md)
 
 ## Getting started
 
+Needs Node 26 (`.nvmrc`, `engines`; same version as the Docker image): `nvm install && nvm use`.
+
 ```bash
 npm install
 npm run dev        # server :8787 + client :5173 → http://localhost:5173
@@ -509,6 +511,16 @@ self-hosted (`@fontsource`), the postmark date is fixed in lite mode. Baselines 
 review the changed PNGs and check them in. Single viewport: `npx playwright test --project=se-320`.
 
 Code reviews with the skill `.claude/skills/typescript-code-review`.
+
+### CI (GitHub Actions)
+
+`.github/workflows/ci.yml` runs on Linux (`ubuntu-24.04`, Node from `.nvmrc`) on every push to `master` and every pull
+request: `check` (= `npm run check`) and `e2e` (= `npm run test:e2e`, Chromium via `npx playwright install --with-deps`;
+the HTML report and traces are uploaded as an artifact when it fails). CI sets `E2E_IGNORE_SNAPSHOTS=1`: the screenshot
+baselines are rendered on macOS and Linux rasterizes text differently, so only the pixel comparison is skipped there
+(layout rules and scenarios still run); run `npm run test:responsive` locally to check the baselines. `security` (= `npm run security`, with the
+docker-based scanners) runs weekly and on manual dispatch only. All actions are pinned to a commit SHA; the workflow has
+read-only `contents` permission and no secrets. It does not deploy: `npm run deploy:azure` stays a manual step.
 
 ## Securities (optional)
 

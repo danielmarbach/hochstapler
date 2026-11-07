@@ -28,7 +28,7 @@
     "@opentelemetry/sdk-logs": "^3.0.0",
     "@opentelemetry/sdk-metrics": "^3.0.0",
     "@opentelemetry/sdk-trace": "^3.0.0",
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.6.6",
     "@types/proxy-addr": "^2.0.3",
     "@types/ws": "^8.5.0",
     "vitest": "^4.1.12"
