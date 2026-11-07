@@ -24,6 +24,8 @@ import {
   DEFAULT_SETTINGS,
   JoinGameRequestSchema,
   GameSettingsSchema,
+  PlayerTokenHeaderSchema,
+  RematchRequestSchema,
   RotateTokenRequestSchema,
   SeatUpdateRequestSchema,
   WS_CLOSE_HANDOVER,
@@ -65,7 +67,7 @@ import type { WriterState } from "./lease/coordinator.ts";
 import { countsAsTraffic } from "./lease/traffic.ts";
 import { LeaseFencedError } from "./lease/types.ts";
 import type { WriterLease } from "./lease/types.ts";
-import type { StoredLobby, StoredSeat } from "./db.ts";
+import type { SavedGame, StoredLobby, StoredSeat } from "./db.ts";
 import {
   httpRejected,
   logOperationFailed,
@@ -361,10 +363,10 @@ function renameBots(lobby: StoredLobby): void {
   }
 }
 
-function addBotSeat(lobby: StoredLobby, level: BotLevel): void {
+function addBotSeat(lobby: StoredLobby, level: BotLevel, name = nextBotName(lobby)): void {
   lobby.seats.push({
     playerId: nextPlayerId(lobby.seats),
-    name: nextBotName(lobby),
+    name,
     color: pickColor(lobby.seats),
     tokenId: pickToken(lobby.settings, lobby.seats),
     kind: "bot",
@@ -373,6 +375,42 @@ function addBotSeat(lobby: StoredLobby, level: BotLevel): void {
     tokenHash: "",
   });
 }
+/**
+ * The rematch lobby of a finished game: same settings, theme, size and bots (same names and levels, in the same order:
+ * a generated name could be one a returning human plays under); the caller is its host and gets the wished game piece,
+ * else the one they played with (docs/DESIGN.md #102).
+ */
+function rematchLobby(
+  old: StoredLobby,
+  caller: StoredSeat,
+  tokenId: string | undefined,
+  gameId: string,
+  tokenHash: string,
+): StoredLobby {
+  const lobby: StoredLobby = {
+    gameId,
+    inviteCode: inviteCodeGen(),
+    status: "lobby",
+    settings: structuredClone(old.settings),
+    seats: [],
+    maxPlayers: old.maxPlayers,
+    createdAt: Date.now(),
+    chat: { ...DEFAULT_CHAT_SETTINGS, muted: [] },
+  };
+  lobby.seats.push({
+    playerId: "p1",
+    name: caller.name,
+    color: pickColor([]),
+    tokenId: pickToken(lobby.settings, [], tokenId ?? caller.tokenId),
+    kind: "human",
+    botLevel: "normal",
+    isHost: true,
+    tokenHash,
+  });
+  for (const bot of old.seats) if (bot.kind === "bot") addBotSeat(lobby, bot.botLevel, bot.name);
+  return lobby;
+}
+
 function reassignTokens(lobby: StoredLobby): void {
   const valid = new Set(getTheme(lobby.settings.themeId).tokens.map((t) => t.id));
   const kept: StoredSeat[] = [];
@@ -694,6 +732,44 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     if (!seat || !seat.isHost) throw new HttpError(403, "Nur der Host darf das.");
     return seat;
   };
+  /** The proof of work every request that CREATES a game (new lobby or rematch lobby) must carry: consumed here. */
+  const redeemCreateProof = async (req: IncomingMessage): Promise<void> => {
+    const powHeader = req.headers[POW_HEADER];
+    const solved = await pow.redeem(
+      Array.isArray(powHeader) ? powHeader[0] : powHeader,
+      "create-game",
+    );
+    powSolutions.add(1, { result: solved.ok ? "ok" : solved.reason });
+    if (!solved.ok) throw new HttpError(403, POW_FAILURES[solved.reason]);
+  };
+  /** Refuses a creation request that carries no proof at all, before anything (the create limiter) is charged for it. */
+  const requireCreateProof = (req: IncomingMessage): void => {
+    const powHeader = req.headers[POW_HEADER];
+    const value = Array.isArray(powHeader) ? powHeader[0] : powHeader;
+    if (value !== undefined && value !== "") return;
+    powSolutions.add(1, { result: "missing" });
+    throw new HttpError(403, POW_MISSING_MESSAGE);
+  };
+  /** The global lobby cap (docs/DESIGN.md #59), counted over the stored games. */
+  const assertLobbySlotFree = (c: Core): void => {
+    if (c.db.countByStatus().lobby >= limits.maxOpenLobbies)
+      throw new HttpError(503, SERVER_FULL_MESSAGE, 600);
+  };
+  /** The x-player-token header: absent is fine (the caller finds no seat: 403), present must be one bounded token. */
+  const playerTokenOf = (req: IncomingMessage): string | undefined => {
+    const raw = req.headers["x-player-token"];
+    if (raw === undefined) return undefined;
+    const parsed = PlayerTokenHeaderSchema.safeParse(raw);
+    if (!parsed.success) throw new HttpError(400, "Ungültiger Spielerschlüssel.");
+    return parsed.data;
+  };
+  /** Several games into the database in one fenced write; a lost lease is a standby answer, any other failure a 500. */
+  const saveTogether = (c: Core, rows: readonly SavedGame[]): void => {
+    const saved = attemptSync("db:saveTogether", () => c.db.saveTogether(rows));
+    if (saved.ok) return;
+    if (saved.error instanceof LeaseFencedError) throw standbyError();
+    throw saved.error;
+  };
   const needLobby = (room: GameRoom) => {
     if (room.lobby.status !== "lobby") throw new HttpError(409, "Das Spiel hat bereits begonnen.");
   };
@@ -746,16 +822,9 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     if (parts.length === 1 && method === "POST") {
       limited(await createLimiter.take(limitKey(ipOf(req))));
       const body = parseBody(createSchema, await readJson(req), isFloorIssue);
-      if (c.db.countByStatus().lobby >= limits.maxOpenLobbies)
-        throw new HttpError(503, SERVER_FULL_MESSAGE, 600);
+      assertLobbySlotFree(c); // early refusal, so a full server does not burn a proof
       // last check, after everything else is valid: the challenge is consumed only for a request that creates a game
-      const powHeader = req.headers[POW_HEADER];
-      const solved = await pow.redeem(
-        Array.isArray(powHeader) ? powHeader[0] : powHeader,
-        "create-game",
-      );
-      powSolutions.add(1, { result: solved.ok ? "ok" : solved.reason });
-      if (!solved.ok) throw new HttpError(403, POW_FAILURES[solved.reason]);
+      await redeemCreateProof(req);
       const hostName = cleanName(body.hostName);
       if (!hostName) throw new HttpError(400, "Name fehlt.");
       const maxPlayers = body.maxPlayers;
@@ -769,6 +838,9 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
       if (body.tokenId !== undefined) assertThemePiece(settings, body.tokenId);
       // still the serving instance after the awaits above? (a handover may have started meanwhile)
       if (activeCore() !== c) throw standbyError();
+      // the cap again: other creations ran during the proof check. No await from here to c.hub.add, which stores the
+      // lobby, so the slot checked is the slot taken.
+      assertLobbySlotFree(c);
       let gameId = rid(8);
       while (c.db.exists(gameId)) gameId = rid(8);
       const token = randomBytes(18).toString("base64url");
@@ -872,6 +944,109 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
           playerId: seat.playerId,
           playerToken: token,
           inviteCode: room.lobby.inviteCode,
+        };
+        sendJson(res, 201, out);
+      }));
+    }
+
+    if (sub === "rematch" && parts.length === 3 && method === "POST") {
+      const ip = ipOf(req);
+      limited(await joinLimiter.take(limitKey(ip)));
+      const header = playerTokenOf(req);
+      if (!room.seatByToken(header)) throw new HttpError(403, "Ungültiger Spielerschlüssel.");
+      const body = parseBody(RematchRequestSchema, await readJson(req));
+      return void (await serve(room, async () => {
+        const caller = room.seatByToken(header);
+        if (!caller) throw new HttpError(403, "Ungültiger Spielerschlüssel.");
+        if (room.lobby.status !== "finished")
+          throw new HttpError(409, "Das Spiel ist noch nicht beendet.");
+        const link = room.lobby.rematch;
+        if (link?.joined.includes(caller.playerId))
+          throw new HttpError(409, "Du hast schon einen Platz in der Revanche.");
+        const token = randomBytes(18).toString("base64url");
+        // joins the one lobby of this game (no proof of work: nothing is created); the new seat and the link to it are
+        // one database write, and memory and sockets change only after it succeeded
+        const joined = link
+          ? await c.hub.withRoom(link.gameId, (next) =>
+              serve(next, () => {
+                if (room.isClosed) throw standbyError();
+                if (room.isExpired || next.isExpired)
+                  throw new HttpError(404, "Spiel nicht gefunden.");
+                if (next.lobby.status !== "lobby")
+                  throw new HttpError(409, "Die Revanche hat bereits begonnen.");
+                if (next.lobby.seats.length >= next.lobby.maxPlayers)
+                  throw new HttpError(409, "Das Spiel ist voll.");
+                if (
+                  next.lobby.seats.some((x) => x.name.toLowerCase() === caller.name.toLowerCase())
+                )
+                  throw new HttpError(409, "Dieser Name ist schon vergeben.");
+                // the piece belongs to the lobby's own theme (its host may have changed it since the old game)
+                if (body.tokenId !== undefined) assertThemePiece(next.lobby.settings, body.tokenId);
+                const seat: StoredSeat = {
+                  playerId: nextPlayerId(next.lobby.seats),
+                  name: caller.name,
+                  color: pickColor(next.lobby.seats),
+                  tokenId: pickToken(
+                    next.lobby.settings,
+                    next.lobby.seats,
+                    body.tokenId ?? caller.tokenId,
+                  ),
+                  kind: "human",
+                  botLevel: "normal",
+                  isHost: false,
+                  tokenHash: sha256(token),
+                };
+                const linked = { ...link, joined: [...link.joined, caller.playerId] };
+                saveTogether(c, [
+                  next.rowWith({ ...next.lobby, seats: [...next.lobby.seats, seat] }),
+                  room.rowWith({ ...room.lobby, rematch: linked }),
+                ]);
+                next.lobby.seats.push(seat);
+                link.joined.push(caller.playerId);
+                next.broadcastLobby();
+                return { gameId: next.lobby.gameId, seat, inviteCode: next.lobby.inviteCode };
+              }),
+            )
+          : null;
+        if (joined) {
+          const out: JoinResponse = {
+            gameId: joined.value.gameId,
+            playerId: joined.value.seat.playerId,
+            playerToken: token,
+            inviteCode: joined.value.inviteCode,
+          };
+          return sendJson(res, 201, out);
+        }
+        // the first call (or the lobby it opened has been deleted meanwhile) creates a game: it costs what POST
+        // /api/games costs, a solved proof of work and the create limiter (docs/DESIGN.md #102). A call without a
+        // proof (the join-first probe of the client) is refused before the limiter, so it costs no creation allowance.
+        requireCreateProof(req);
+        limited(await createLimiter.take(limitKey(ip)));
+        if (body.tokenId !== undefined) assertThemePiece(room.lobby.settings, body.tokenId);
+        assertLobbySlotFree(c); // early refusal, so a full server does not burn a proof
+        await redeemCreateProof(req);
+        // still the serving instance after the awaits above? (a handover may have started meanwhile)
+        if (room.isClosed || activeCore() !== c) throw standbyError();
+        if (room.isExpired) throw new HttpError(404, "Spiel nicht gefunden.");
+        // the cap again: rematches of other rooms ran during the proof check (this room's queue does not order
+        // them). No await from here to the saveTogether that stores the lobby, so the slot checked is the slot taken.
+        assertLobbySlotFree(c);
+        let gameId = rid(8);
+        while (c.db.exists(gameId)) gameId = rid(8);
+        const lobby = rematchLobby(room.lobby, caller, body.tokenId, gameId, sha256(token));
+        const opened = { gameId, joined: [caller.playerId] };
+        saveTogether(c, [
+          room.rowWith({ ...room.lobby, rematch: opened }),
+          { lobby, state: null, activityAt: Date.now() },
+        ]);
+        room.lobby.rematch = opened;
+        c.hub.adopt(lobby);
+        room.broadcastLobby();
+        const out: JoinResponse = {
+          gameId,
+          playerId: "p1",
+          playerToken: token,
+          inviteCode: lobby.inviteCode,
         };
         sendJson(res, 201, out);
       }));

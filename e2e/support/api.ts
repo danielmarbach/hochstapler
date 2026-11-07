@@ -19,8 +19,9 @@ export class Api {
   }
 
   /**
-   * Game creation needs a solved proof of work (docs/DESIGN.md #70). The server runs in test mode, whose challenges are
-   * cheap, but the challenge is never skipped: this is the same exchange the browser does.
+   * Game creation, and the rematch call that opens the rematch lobby, need a solved proof of work (docs/DESIGN.md #70,
+   * #102). The server runs in test mode, whose challenges are cheap, but the challenge is never skipped: this is the
+   * same exchange the browser does.
    */
   private async powHeaders(): Promise<Record<string, string>> {
     const res = await fetch(`${this.baseUrl}/api/pow/challenge`, {
@@ -44,7 +45,9 @@ export class Api {
       headers: {
         "content-type": "application/json",
         ...(token ? { "x-player-token": token } : {}),
-        ...(method === "POST" && path === "/api/games" ? await this.powHeaders() : {}),
+        ...(method === "POST" && (path === "/api/games" || path.endsWith("/rematch"))
+          ? await this.powHeaders()
+          : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
@@ -81,6 +84,22 @@ export class Api {
       inviteCode: host.inviteCode,
       ...(tokenId === undefined ? {} : { tokenId }),
     })) as JoinResponse;
+    return {
+      gameId: r.gameId,
+      playerId: r.playerId,
+      token: r.playerToken,
+      inviteCode: r.inviteCode,
+    };
+  }
+
+  /** finished game: the seat opens the rematch lobby or joins it, and gets a seat of its own there (docs/DESIGN.md #102) */
+  async rematch(seat: Seat): Promise<Seat> {
+    const r = (await this.call(
+      "POST",
+      `/api/games/${seat.gameId}/rematch`,
+      {},
+      seat.token,
+    )) as JoinResponse;
     return {
       gameId: r.gameId,
       playerId: r.playerId,

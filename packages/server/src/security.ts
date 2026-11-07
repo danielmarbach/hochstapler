@@ -205,6 +205,7 @@ const API_ROUTES: readonly { re: RegExp; template: string; methods: readonly str
   { re: new RegExp(`^${GAME}/settings$`), template: "/api/games/:id/settings", methods: ["PATCH"] },
   { re: new RegExp(`^${GAME}/chat$`), template: "/api/games/:id/chat", methods: ["PATCH"] },
   { re: new RegExp(`^${GAME}/start$`), template: "/api/games/:id/start", methods: ["POST"] },
+  { re: new RegExp(`^${GAME}/rematch$`), template: "/api/games/:id/rematch", methods: ["POST"] },
 ];
 
 /**

@@ -121,6 +121,15 @@ export const api = {
   /** host only: chat mode and muting (docs/DESIGN.md #69) */
   patchChat: (id: string, update: ChatUpdateRequest) =>
     call<LobbyInfo>("PATCH", `/api/games/${id}/chat`, update, getToken(id)),
+  /** finished game, seated human: open the game's rematch lobby (first call, needs `powHeader` like a creation) or join it; the answer is a new seat (#102) */
+  rematch: (id: string, tokenId?: string, powHeader?: string) =>
+    call<JoinResponse>(
+      "POST",
+      `/api/games/${id}/rematch`,
+      tokenId === undefined ? {} : { tokenId },
+      getToken(id),
+      powHeader === undefined ? {} : { [POW_HEADER]: powHeader },
+    ),
   start: (id: string) => call<LobbyInfo>("POST", `/api/games/${id}/start`, {}, getToken(id)),
   /** new personal token for my seat; the old one stops working (validated: it ends up in localStorage and links) */
   rotateToken: async (id: string): Promise<string> => {

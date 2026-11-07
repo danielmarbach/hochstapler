@@ -34,6 +34,8 @@ export interface LobbyInfo {
   createdAt: number;
   /** chat mode and muted players (public: spectators see the mode, never the lines) */
   chat: ChatSettings;
+  /** a rematch lobby exists for this finished game (public: only the fact, the new game is reached via POST /rematch) */
+  rematch: boolean;
 }
 
 // ---- REST ----
@@ -46,6 +48,11 @@ export interface LobbyInfo {
 // PATCH /api/games/:id/chat body ChatUpdateRequest (host, any time) -> LobbyInfo
 // PATCH /api/games/:id/seats/me body SeatUpdateRequest (own seat, lobby only) -> LobbyInfo; 409 if the piece is taken
 // POST /api/games/:id/start  header x-player-token (host) -> LobbyInfo
+// POST /api/games/:id/rematch body RematchRequest, header x-player-token (a seated human, game finished) -> JoinResponse
+//      of the one rematch lobby of this game (the first caller opens it as host, every other seat joins it). Opening it
+//      creates a game: it needs header x-pow-solution and counts against the create limit like POST /api/games (403 /
+//      429); a join needs no proof. 400 malformed token header; 409 when the game is not finished, the caller already
+//      has their rematch seat, or the new lobby is full / started
 // POST /api/games/:id/seats/me/token  header x-player-token (own seat) -> RotateTokenResponse; the old token dies,
 //      the seat's sockets are closed with 4001 "token rotated" (reconnect with the new token)
 // GET  /api/themes           -> { id, name, flag }[]
@@ -70,6 +77,11 @@ export interface JoinResponse {
   playerId: PlayerId;
   playerToken: string;
   inviteCode: string;
+}
+
+/** Body of the rematch call: the wished game piece of the new lobby (default: the one from the finished game). */
+export interface RematchRequest {
+  tokenId?: string;
 }
 
 /** Body of the piece change: the id of one of the theme's tokens (the seat is the one of the x-player-token header). */

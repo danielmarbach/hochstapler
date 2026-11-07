@@ -105,12 +105,12 @@ For permanent operation a small host (Fly.io, Render, VPS) is suitable; game sta
 | `GAME_TTL_RUNNING_DAYS` | 60 | running game without human activity: days until deletion |
 | `ACTION_LOG_KEEP` | 2000 | newest action log entries kept per game |
 | `TRUST_PROXY_HOPS` | 0 | reverse proxies in front of the app that append to `x-forwarded-for` (Caddy and Azure Container Apps: `1`). Per-client limits use the entry that many places from the **right**, never the leftmost one. Leave at 0 without a proxy |
-| `GAME_CREATE_PER_HOUR` / `GAME_CREATE_BURST` | 10 / 5 | per client: games created (429 + `Retry-After` above) |
-| `GAME_JOIN_PER_HOUR` / `GAME_JOIN_BURST` | 30 / 10 | per client: join requests |
+| `GAME_CREATE_PER_HOUR` / `GAME_CREATE_BURST` | 10 / 5 | per client: games created, and rematch lobbies opened (429 + `Retry-After` above) |
+| `GAME_JOIN_PER_HOUR` / `GAME_JOIN_BURST` | 30 / 10 | per client: join and rematch requests (every rematch call; opening the lobby also counts as a creation) |
 | `MAX_OPEN_LOBBIES` / `MAX_RUNNING_GAMES` | 200 / 50 | server-wide caps (503 "server full") |
 | `WS_MAX_PER_IP` | 20 | concurrent WebSockets per client |
 | `CHAT_BURST` / `CHAT_PER_HOUR` | 5 / 1800 | chat messages per player (5 per 10 s; DESIGN #69). Chat text is never logged or stored |
-| `POW_DIFFICULTY` | 100000 | proof of work for creating a game (DESIGN #70): largest counter a challenge can need. Values below 5000 abort the start in production; there is no switch that turns the check off |
+| `POW_DIFFICULTY` | 100000 | proof of work for creating a game or opening a rematch lobby (DESIGN #70, #102): largest counter a challenge can need. Values below 5000 abort the start in production; there is no switch that turns the check off |
 | `POW_TTL_SEC` / `POW_CAPACITY` | 300 / 10000 | validity of a challenge, and how many live challenges the replay store holds (full = no new challenge, 503) |
 | `POW_CHALLENGE_BURST` / `POW_CHALLENGES_PER_HOUR` | 20 / 120 | per client: challenges issued |
 | `POW_HMAC_KEY` | random per process | optional fixed signing secret (32+ characters); never logged |

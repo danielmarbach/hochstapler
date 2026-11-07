@@ -3,9 +3,12 @@ import type { GameOverReason, PlayerResult, PlayerState, Theme } from "@poly/eng
 import { breakdownLines, resultsOf } from "../game/results.ts";
 import { t } from "../i18n/index.ts";
 import type { UiKey } from "../i18n/index.ts";
-import { useApp } from "../net/store.ts";
+import { useState } from "preact/hooks";
+import { attempt } from "@poly/engine";
+import { enterRematch } from "../net/rematch.ts";
+import { getRematch, saveJoin, saveRematch, useApp } from "../net/store.ts";
 import { inkOn } from "./palette.ts";
-import { money, nav, useTheme } from "./util.tsx";
+import { errMsg, money, nav, useTheme } from "./util.tsx";
 import { TokenIcon } from "./TokenIcon.tsx";
 import { Modal } from "./Modal.tsx";
 
@@ -71,8 +74,36 @@ function Breakdown({ result, theme }: { result: PlayerResult; theme: Theme }) {
 export function Results() {
   const theme = useTheme();
   const state = useApp((s) => s.state);
+  const gameId = useApp((s) => s.gameId);
+  const seated = useApp((s) => s.you !== null);
+  const rematchOpen = useApp((s) => s.lobby?.rematch === true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   if (!state) {
     return null;
+  }
+  /** opens the rematch lobby (first caller) or takes a seat in it; "back" from it goes straight there again */
+  async function rematch() {
+    if (!gameId) {
+      return;
+    }
+    const known = getRematch(gameId);
+    if (known) {
+      nav(`#/game/${known}`);
+      return;
+    }
+    setBusy(true);
+    setErr("");
+    const joined = await attempt("rematch:submit", () => enterRematch(gameId, rematchOpen));
+    if (!joined.ok) {
+      setErr(errMsg(joined.error));
+      setBusy(false);
+      return;
+    }
+    const r = joined.value;
+    saveJoin(r.gameId, r.playerToken, r.inviteCode);
+    saveRematch(gameId, r.gameId);
+    nav(`#/game/${r.gameId}`);
   }
   const ph = state.phase;
   const results = resultsOf(state);
@@ -137,9 +168,26 @@ export function Results() {
           ))}
         </ol>
         <p class="note">{t("results.note")}</p>
-        <button class="cta" data-testid="new-game" onClick={() => nav("#/")}>
-          {t("results.newGame")}
-        </button>
+        {err && (
+          <div class="err" role="alert" data-testid="rematch-error">
+            {err}
+          </div>
+        )}
+        <div class="results-actions">
+          {seated && (
+            <button
+              class="cta"
+              data-testid="rematch"
+              disabled={busy}
+              onClick={() => void rematch()}
+            >
+              {rematchOpen ? t("results.rematchJoin") : t("results.rematch")}
+            </button>
+          )}
+          <button class={seated ? "ghost" : "cta"} data-testid="new-game" onClick={() => nav("#/")}>
+            {t("results.newGame")}
+          </button>
+        </div>
       </div>
     </Modal>
   );

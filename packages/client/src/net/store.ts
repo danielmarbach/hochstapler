@@ -173,4 +173,15 @@ export function saveJoin(gameId: string, token: string, invite: string): void {
   });
 }
 
+/** the rematch of a finished game this browser already sits in (a game id, no secret); "back" must not ask twice */
+export const rematchKey = (gameId: string) => `poly:rematch:${gameId}`;
+export function saveRematch(gameId: string, rematchId: string): void {
+  attemptSync("storage:write", () => localStorage.setItem(rematchKey(gameId), rematchId));
+}
+/** the rematch game of `gameId` while this browser still holds a seat token for it */
+export function getRematch(gameId: string): string | null {
+  const id = readStorage(rematchKey(gameId));
+  return id !== null && getToken(id) !== null ? id : null;
+}
+
 export type ActionSender = (a: GameAction) => void;

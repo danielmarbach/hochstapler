@@ -84,12 +84,16 @@ export class Table {
     return this.anna;
   }
 
-  playerId(name: string): string {
+  seat(name: string): Seat {
     const seat = this.seats.get(name);
     if (!seat) {
       throw new Error(`${name} does not sit at the table`);
     }
-    return seat.playerId;
+    return seat;
+  }
+
+  playerId(name: string): string {
+    return this.seat(name).playerId;
   }
 
   tile(name: string): number {

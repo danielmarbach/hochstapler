@@ -3662,8 +3662,10 @@ dialog.modal-bg .endvote {
   margin: 0;
   text-align: left;
 }
-.results .cta {
-  justify-self: center;
+.results-actions {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
 }
 @media (max-width: 599px) {
   .modal-bg.results-bg {
@@ -3682,8 +3684,8 @@ dialog.modal-bg .endvote {
   .breakdown {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .results .cta {
-    width: 100%;
+  .results-actions {
+    justify-items: stretch;
   }
 }
 @media (max-height: 480px) {

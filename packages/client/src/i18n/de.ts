@@ -72,6 +72,9 @@ export const de = {
   "srv.gameFull": "Das Spiel ist voll.",
   "srv.nameTaken": "Dieser Name ist schon vergeben.",
   "srv.tokenTaken": "Diese Spielfigur ist schon vergeben.",
+  "srv.notFinished": "Das Spiel ist noch nicht beendet.",
+  "srv.rematchJoined": "Du hast schon einen Platz in der Revanche.",
+  "srv.rematchStarted": "Die Revanche hat bereits begonnen.",
   "srv.unknownToken": "Unbekannte Spielfigur.",
   "srv.seatNotFound": "Sitz nicht gefunden.",
   "srv.hostNotRemovable": "Der Host kann nicht entfernt werden.",
@@ -261,6 +264,8 @@ export const de = {
   "results.total": "Vermögen",
   "results.bankrupt": "bankrott",
   "results.newGame": "Neues Spiel",
+  "results.rematch": "Revanche",
+  "results.rematchJoin": "Revanche beitreten",
   "results.note": "Das Vermögen zählt Bargeld, Grundstücke und Gebäude, abzüglich Hypotheken.",
 
   // ---- bottom sheet ----

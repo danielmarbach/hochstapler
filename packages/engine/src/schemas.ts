@@ -9,6 +9,7 @@ import type {
   CreateGameRequest,
   JoinGameRequest,
   RotateTokenRequest,
+  RematchRequest,
   SeatUpdateRequest,
   RotateTokenResponse,
 } from "./protocol.ts";
@@ -145,9 +146,20 @@ export const JoinGameRequestSchema = z.object({
   tokenId: z.string().max(32).optional(),
 });
 
+export const RematchRequestSchema = z.strictObject({
+  tokenId: z.string().min(1).max(32).optional(),
+});
+
 export const SeatUpdateRequestSchema = z.strictObject({ tokenId: z.string().min(1).max(32) });
 
 export const RotateTokenRequestSchema = z.strictObject({});
+
+/** The x-player-token header: one base64url token (what the server mints), never a list or free text. */
+export const PlayerTokenHeaderSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+$/);
 
 export const RotateTokenResponseSchema = z.object({ playerToken: z.string().min(16).max(128) });
 
@@ -176,6 +188,7 @@ export type SchemaContractChecks = [
   Assert<Equals<z.infer<typeof GameSettingsSchema>, GameSettings>>,
   Assert<Equals<z.infer<typeof CreateGameRequestSchema>, CreateGameRequest>>,
   Assert<Equals<z.infer<typeof JoinGameRequestSchema>, JoinGameRequest>>,
+  Assert<Equals<z.infer<typeof RematchRequestSchema>, RematchRequest>>,
   Assert<Equals<z.infer<typeof ClientMessageSchema>, ClientMessage>>,
   Assert<Equals<z.infer<typeof RotateTokenResponseSchema>, RotateTokenResponse>>,
   Assert<Equals<z.infer<typeof RotateTokenRequestSchema>, RotateTokenRequest>>,
