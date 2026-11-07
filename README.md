@@ -515,7 +515,7 @@ Code reviews with the skill `.claude/skills/typescript-code-review`.
 ### CI (GitHub Actions)
 
 `.github/workflows/ci.yml` runs on Linux (`ubuntu-24.04`, Node from `.nvmrc`) on every push to `master` and every pull
-request: `check` (= `npm run check`) and `e2e` (= `npm run test:e2e`, Chromium via `npx playwright install --with-deps`;
+request: `check` (= `npm run check`) and `e2e` (= `npm run test:e2e`, one parallel job per Playwright project, Chromium via `npx playwright install --with-deps`;
 the HTML report and traces are uploaded as an artifact when it fails). CI sets `E2E_IGNORE_SNAPSHOTS=1`: the screenshot
 baselines are rendered on macOS and Linux rasterizes text differently, so only the pixel comparison is skipped there
 (layout rules and scenarios still run); run `npm run test:responsive` locally to check the baselines. `security` (= `npm run security`, with the
