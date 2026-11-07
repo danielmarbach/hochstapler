@@ -1,4 +1,4 @@
-// Drawn icons and labels (docs/DESIGN.md #102): the toolbar in the top right and the give-up control carry a text
+// Drawn icons and labels (docs/DESIGN.md #104): the toolbar in the top right and the give-up control carry a text
 // label where there is room and are icon-only elsewhere; the accessible names never change with the layout.
 import type { Locator } from "@playwright/test";
 import { expect, test, verifyScreen } from "../support/responsive.ts";

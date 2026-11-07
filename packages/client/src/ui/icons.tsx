@@ -1,4 +1,4 @@
-// Drawn icon set (docs/DESIGN.md #102): inline SVG instead of emoji, which look different on every OS and clash
+// Drawn icon set (docs/DESIGN.md #104): inline SVG instead of emoji, which look different on every OS and clash
 // with the ink look of the stamps and postmarks. Same 2px ink stroke, hard corners, colour from the surrounding text.
 // The icon itself is decoration: the control around it carries the accessible name.
 import type { VNode } from "preact";
