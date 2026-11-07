@@ -606,6 +606,7 @@ export const en = {
   "auction.amountLabel": "Bid amount",
   "auction.raise": "Raise bid by {n}",
   "auction.range": "Bid between {min} and {max}.",
+  "auction.overCash": "More than your cash: you will have to raise money afterwards.",
   "auction.noBid": "No bids yet",
   "auction.yourCash": "Your cash",
   "auction.yourTurn": "Your turn",

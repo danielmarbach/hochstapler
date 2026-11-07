@@ -342,6 +342,21 @@ When("{player} places the bid", async ({ world }, name: string) => {
   await world.get(name).testId("action-bid").click();
 });
 
+Then("{player} sees no hint about raising money", async ({ world }, name: string) => {
+  await expect(world.get(name).testId("bid-over-cash")).toBeHidden();
+});
+
+Then(
+  "{player} sees the hint that the bid is more than his cash",
+  async ({ world }, name: string) => {
+    await expect(world.get(name).testId("bid-over-cash")).toContainText("Mehr als dein Bargeld");
+  },
+);
+
+Then("{player} can place the bid", async ({ world }, name: string) => {
+  await expect(world.get(name).testId("action-bid")).toBeEnabled();
+});
+
 Then(
   "{player} sees that {player} is on the move while {player} is bidding",
   async ({ world }, viewer: string, mover: string, bidder: string) => {
@@ -389,16 +404,20 @@ Then(
   },
 );
 
-Then(
-  "{player} sees neither the trade button nor the give-up flag",
-  async ({ world }, name: string) => {
-    const actor = world.get(name);
-    await expect(actor.testId("open-trade")).toBeHidden();
-    await expect(actor.testId("action-give-up")).toBeHidden();
-  },
-);
+Then("{player} sees no secondary controls", async ({ world }, name: string) => {
+  const actor = world.get(name);
+  for (const id of [
+    "open-properties",
+    "open-securities",
+    "open-loan",
+    "open-trade",
+    "action-give-up",
+  ]) {
+    await expect(actor.testId(id)).toBeHidden();
+  }
+});
 
-Then("{player} still sees the properties button", async ({ world }, name: string) => {
+Then("{player} sees the properties button", async ({ world }, name: string) => {
   await expect(world.get(name).testId("open-properties")).toBeVisible();
 });
 

@@ -611,6 +611,7 @@ export const fr = {
   "auction.amountLabel": "Montant de l'enchère",
   "auction.raise": "Augmenter l'enchère de {n}",
   "auction.range": "Enchère entre {min} et {max}.",
+  "auction.overCash": "Plus que ton argent : tu devras ensuite réunir des fonds.",
   "auction.noBid": "Pas encore d'enchère",
   "auction.yourCash": "Ton argent",
   "auction.yourTurn": "C'est ton tour",

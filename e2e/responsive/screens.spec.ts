@@ -11,6 +11,7 @@ import {
   expectPlayerCardsSound,
   expectPosterNotClipped,
   expectTokenPickerSound,
+  expectResultsActionsVisible,
   expectVisibleWithoutScrolling,
 } from "../support/layout.ts";
 import type { SheetTab } from "../support/actor.ts";
@@ -322,6 +323,19 @@ test.describe("Game", () => {
       await verifyScreen(benPage, device, "auction-bid");
     });
 
+    test("Own bid above the cash", async ({ page, device, table }) => {
+      // a bid beyond the cash is allowed: a calm hint says money has to be raised afterwards
+      await table.patch({ players: { [table.playerId("Ben")]: { cash: 20 } } });
+      const benPage = await page.context().newPage();
+      const ben = await table.openAs(table.seat("Ben"), "auction", benPage);
+      await expect(ben.action("bid")).toBeEnabled();
+      await ben.testId("bid-amount").fill("50");
+      await expect(ben.testId("bid-over-cash")).toBeVisible();
+      await expectVisibleWithoutScrolling(ben.testId("bid-over-cash"), "Over-cash hint");
+      await expectVisibleWithoutScrolling(ben.action("bid"), "Bid");
+      await verifyScreen(benPage, device, "auction-bid-over-cash");
+    });
+
     test("Own bid against a leader, auto-bid controls opened", async ({ page, device, table }) => {
       // Ben leads with 120, so Clara, the next bidder, bids against him
       const benPage = await page.context().newPage();
@@ -356,6 +370,7 @@ test.describe("Game", () => {
     await table.actor.testId("bankrupt-confirm").click();
     await expect(table.actor.testId("game-over")).toBeVisible();
     await expect(table.actor.testId("winner")).toContainText("Ben");
+    await expectResultsActionsVisible(page);
     await verifyScreen(page, device, "game-over", { scope: GAME_OVER });
   });
 
@@ -415,6 +430,7 @@ test.describe("Game", () => {
     await expect(table.actor.testId("results-row")).toHaveCount(3);
     await expect(table.actor.testId("rematch")).toHaveText("Revanche");
     await expect(table.actor.testId("new-game")).toBeVisible();
+    await expectResultsActionsVisible(page);
     await verifyScreen(page, device, "results", { scope: GAME_OVER });
   });
 
@@ -430,6 +446,7 @@ test.describe("Game", () => {
     await table.api.rematch(table.seat("Ben"));
     await expect(table.actor.testId("rematch")).toHaveText("Revanche beitreten");
     await expect(table.actor.testId("new-game")).toBeVisible();
+    await expectResultsActionsVisible(page);
     await verifyScreen(page, device, "results-rematch-open", { scope: GAME_OVER });
   });
 
@@ -446,6 +463,7 @@ test.describe("Game", () => {
     await table.api.join(lobby, "Emil");
     await table.actor.testId("rematch").click();
     await expect(table.actor.testId("rematch-error")).toHaveText("Das Spiel ist voll.");
+    await expectResultsActionsVisible(page);
     await verifyScreen(page, device, "results-rematch-full", { scope: GAME_OVER });
   });
 
@@ -680,6 +698,7 @@ test.describe("Heavy ownership", () => {
     await table.actor.testId("end-vote-yes").click();
     await expect(table.actor.testId("game-over")).toBeVisible();
     await expect(table.actor.testId("results-row")).toHaveCount(4);
+    await expectResultsActionsVisible(page);
     await verifyScreen(page, device, "heavy-results", { scope: GAME_OVER });
   });
 });

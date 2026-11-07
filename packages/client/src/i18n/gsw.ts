@@ -578,6 +578,7 @@ export const gsw = {
   "auction.amountLabel": "Gebotsbetrag",
   "auction.raise": "Gebot um {n} erhöhe",
   "auction.range": "Gebot zwüsche {min} und {max}.",
+  "auction.overCash": "Meh als dis Bargäld: du muesch nachär Gäld ufträibe.",
   "auction.noBid": "No ke Gebot",
   "auction.yourCash": "Dis Bargäld",
   "auction.yourTurn": "Du bisch draa",

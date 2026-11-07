@@ -7,3 +7,8 @@ export function defaultBid(highest: number): number {
 export function stepBid(bid: number, delta: number, highest: number, maxBid: number): number {
   return Math.min(maxBid, Math.max(highest + 1, bid + delta));
 }
+
+/** a bid above the cash is allowed (the winner raises the money afterwards): the UI only points it out */
+export function exceedsCash(bid: number, cash: number): boolean {
+  return bid > cash;
+}

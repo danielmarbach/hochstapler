@@ -421,6 +421,12 @@ export async function expectVisibleWithoutScrolling(locator: Locator, what: stri
   expect(problem, `${what} visible without scrolling`).toBeNull();
 }
 
+/** The results panel scrolls, so its two actions must not be left below the fold: rematch and new game both show at once. */
+export async function expectResultsActionsVisible(page: Page): Promise<void> {
+  await expectVisibleWithoutScrolling(page.getByTestId("rematch"), "Rematch");
+  await expectVisibleWithoutScrolling(page.getByTestId("new-game"), "New game");
+}
+
 /** Waits until all finite CSS animations/transitions are done (reduced motion makes them ~instant, but not zero). */
 export async function animationsFinished(page: Page): Promise<void> {
   await page.evaluate(async () => {

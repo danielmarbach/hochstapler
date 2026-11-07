@@ -16,7 +16,7 @@ import { sendAction } from "../net/ws.ts";
 import { set, useApp } from "../net/store.ts";
 import { tileKindText } from "../i18n/labels.ts";
 import { buyInfo } from "./buy-info.ts";
-import { defaultBid, stepBid } from "./bid.ts";
+import { defaultBid, exceedsCash, stepBid } from "./bid.ts";
 import { inkOn } from "./palette.ts";
 import { TokenIcon } from "./TokenIcon.tsx";
 import { asGame, money, useTheme, useThemeText } from "./util.tsx";
@@ -123,7 +123,7 @@ function ActionBarFor({
     ) : null;
   const again = phase.type === "await-end-turn" && phase.canRollAgain;
   const isMyTurn = state.players[state.current]?.id === you;
-  /** the own bid is the only decision: trading, securities, loans and giving up would only compete with it */
+  /** the own bid is the only decision: properties, trading, securities, loans and giving up would only compete with it */
   const biddingNow = phase.type === "auction" && phase.auction.turn === you;
   const propertiesButton = (
     <button
@@ -257,6 +257,11 @@ function ActionBarFor({
                 {t("auction.range", { min: money(theme, hb + 1), max: money(theme, maxBid) })}
               </p>
             )}
+            {bidValid && exceedsCash(bid, me.cash) && (
+              <p class="asub bidhint" data-testid="bid-over-cash" role="status">
+                {t("auction.overCash")}
+              </p>
+            )}
           </div>
         )}
         <div class="aextra">
@@ -318,7 +323,6 @@ function ActionBarFor({
               )}
             </div>
           )}
-          {biddingNow && !compact && propertiesButton}
         </div>
       </div>
     );

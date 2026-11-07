@@ -1,6 +1,6 @@
 // Auction bid amount: the pre-filled bid and the - / + steppers keep every amount inside what the engine accepts.
 import { describe, expect, it } from "vitest";
-import { defaultBid, stepBid } from "../src/ui/bid.ts";
+import { defaultBid, exceedsCash, stepBid } from "../src/ui/bid.ts";
 
 describe("defaultBid", () => {
   it("starts at the minimum raise of 10 when nobody has bid", () => {
@@ -33,5 +33,17 @@ describe("stepBid", () => {
 
   it("pulls a stale amount below the minimum up to it (the highest bid moved while typing)", () => {
     expect(stepBid(30, 10, 80, 2000)).toBe(81);
+  });
+});
+
+describe("exceedsCash", () => {
+  it("is false up to and including the cash", () => {
+    expect(exceedsCash(40, 2000)).toBe(false);
+    expect(exceedsCash(2000, 2000)).toBe(false);
+  });
+
+  it("is true once the bid needs money raised afterwards", () => {
+    expect(exceedsCash(2001, 2000)).toBe(true);
+    expect(exceedsCash(50, 20)).toBe(true);
   });
 });

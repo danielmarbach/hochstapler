@@ -612,6 +612,7 @@ export const de = {
   "auction.amountLabel": "Gebotsbetrag",
   "auction.raise": "Gebot um {n} erhöhen",
   "auction.range": "Gebot zwischen {min} und {max}.",
+  "auction.overCash": "Mehr als dein Bargeld: du musst danach Geld auftreiben.",
   "auction.noBid": "Noch kein Gebot",
   "auction.yourCash": "Dein Bargeld",
   "auction.yourTurn": "Du bist dran",

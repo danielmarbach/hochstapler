@@ -2,7 +2,7 @@
 // the same layouts as the German baselines. Phone, smallest phone (se-320) and desktop are enough to prove it; the
 // other viewports share their layout rules with these. Baselines carry the language suffix: <screen>-fr.png.
 import { expect, settle, test, verifyScreen } from "../support/responsive.ts";
-import { expectVisibleWithoutScrolling } from "../support/layout.ts";
+import { expectResultsActionsVisible, expectVisibleWithoutScrolling } from "../support/layout.ts";
 import type { Page } from "@playwright/test";
 
 const LANGUAGES = [
@@ -142,6 +142,7 @@ for (const language of LANGUAGES) {
       await expect(table.actor.testId("game-over")).toBeVisible();
       await expect(table.actor.testId("results-row")).toHaveCount(3);
       await expect(table.actor.testId("game-over")).toContainText(language.results);
+      await expectResultsActionsVisible(page);
       await verifyScreen(page, device, `results-${language.lang}`, { scope: GAME_OVER });
     });
 

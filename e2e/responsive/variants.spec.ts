@@ -3,6 +3,7 @@
 import { expect, settle, test, verifyScreen } from "../support/responsive.ts";
 import {
   expectPlayerCardsSound,
+  expectResultsActionsVisible,
   expectSoundLayout,
   expectTokenPickerSound,
   expectVisibleWithoutScrolling,
@@ -57,6 +58,7 @@ for (const lang of ["en", "gsw"] as const) {
       await table.actor.testId("end-vote-yes").click();
       await expect(table.actor.testId("game-over")).toBeVisible();
       await expect(table.actor.testId("results-row")).toHaveCount(4);
+      await expectResultsActionsVisible(page);
       await verifyScreen(page, device, `heavy-results-${lang}`, { scope: GAME_OVER });
     });
   });

@@ -90,13 +90,24 @@ Feature: Auction
     And the auction for Anna says "Du bist dran"
 
   @desktop
-  Scenario: Only what matters is shown while Ben is bidding
+  Scenario: No secondary controls are shown while Ben is bidding
     When Anna rolls
     And Anna declines the purchase
     Then it is Ben's turn to bid
-    And Ben sees neither the trade button nor the give-up flag
-    And Ben still sees the properties button
+    And Ben sees no secondary controls
+    And Anna sees the properties button
     And Anna sees the trade button
+
+  Scenario: Ben is told calmly when his bid is more than his cash
+    Given Ben has cash of 20
+    And Ben already owns "Pilatusstrasse"
+    When Anna rolls
+    And Anna declines the purchase
+    And Ben types the bid amount 20
+    Then Ben sees no hint about raising money
+    When Ben types the bid amount 50
+    Then Ben sees the hint that the bid is more than his cash
+    And Ben can place the bid
 
   Scenario: The HUD tells who is on the move and who is bidding
     When Anna rolls

@@ -603,6 +603,7 @@ export const it = {
   "auction.amountLabel": "Importo dell'offerta",
   "auction.raise": "Aumenta l'offerta di {n}",
   "auction.range": "Offerta tra {min} e {max}.",
+  "auction.overCash": "Più del tuo contante: dopo dovrai procurarti del denaro.",
   "auction.noBid": "Ancora nessuna offerta",
   "auction.yourCash": "Il tuo contante",
   "auction.yourTurn": "Tocca a te",
