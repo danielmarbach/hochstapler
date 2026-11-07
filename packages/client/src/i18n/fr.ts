@@ -70,6 +70,9 @@ export const fr = {
   "srv.gameFull": "La partie est complète.",
   "srv.nameTaken": "Ce nom est déjà pris.",
   "srv.tokenTaken": "Ce pion est déjà pris.",
+  "srv.notFinished": "La partie n'est pas encore terminée.",
+  "srv.rematchJoined": "Tu as déjà une place dans la revanche.",
+  "srv.rematchStarted": "La revanche a déjà commencé.",
   "srv.unknownToken": "Pion inconnu.",
   "srv.seatNotFound": "Place introuvable.",
   "srv.hostNotRemovable": "L'hôte ne peut pas être retiré.",
@@ -260,6 +263,8 @@ export const fr = {
   "results.total": "Fortune nette",
   "results.bankrupt": "en faillite",
   "results.newGame": "Nouvelle partie",
+  "results.rematch": "Revanche",
+  "results.rematchJoin": "Rejoindre la revanche",
   "results.note":
     "La fortune nette compte l'argent, les propriétés et les constructions, moins les hypothèques.",
 

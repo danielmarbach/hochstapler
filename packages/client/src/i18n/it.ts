@@ -70,6 +70,9 @@ export const it = {
   "srv.gameFull": "La partita è al completo.",
   "srv.nameTaken": "Questo nome è già in uso.",
   "srv.tokenTaken": "Questa pedina è già presa.",
+  "srv.notFinished": "La partita non è ancora finita.",
+  "srv.rematchJoined": "Hai già un posto nella rivincita.",
+  "srv.rematchStarted": "La rivincita è già iniziata.",
   "srv.unknownToken": "Pedina sconosciuta.",
   "srv.seatNotFound": "Posto non trovato.",
   "srv.hostNotRemovable": "L'host non può essere rimosso.",
@@ -257,6 +260,8 @@ export const it = {
   "results.total": "Patrimonio netto",
   "results.bankrupt": "in bancarotta",
   "results.newGame": "Nuova partita",
+  "results.rematch": "Rivincita",
+  "results.rematchJoin": "Unisciti alla rivincita",
   "results.note": "Il patrimonio netto conta denaro, proprietà ed edifici, meno le ipoteche.",
 
   // ---- bottom sheet ----

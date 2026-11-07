@@ -69,6 +69,9 @@ export const en = {
   "srv.gameFull": "The game is full.",
   "srv.nameTaken": "This name is already taken.",
   "srv.tokenTaken": "This game piece is already taken.",
+  "srv.notFinished": "The game is not over yet.",
+  "srv.rematchJoined": "You already have a seat in the rematch.",
+  "srv.rematchStarted": "The rematch has already started.",
   "srv.unknownToken": "Unknown game piece.",
   "srv.seatNotFound": "Seat not found.",
   "srv.hostNotRemovable": "The host cannot be removed.",
@@ -256,6 +259,8 @@ export const en = {
   "results.total": "Net worth",
   "results.bankrupt": "bankrupt",
   "results.newGame": "New game",
+  "results.rematch": "Rematch",
+  "results.rematchJoin": "Join rematch",
   "results.note": "Net worth counts cash, properties and buildings, minus mortgages.",
 
   // ---- bottom sheet ----
