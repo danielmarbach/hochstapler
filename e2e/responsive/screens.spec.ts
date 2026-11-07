@@ -362,8 +362,40 @@ test.describe("Game", () => {
     await table.actor.testId("end-vote-yes").click();
     await expect(table.actor.testId("game-over")).toBeVisible();
     await expect(table.actor.testId("results-row")).toHaveCount(3);
+    await expect(table.actor.testId("rematch")).toHaveText("Revanche");
     await expect(table.actor.testId("new-game")).toBeVisible();
     await verifyScreen(page, device, "results", { scope: GAME_OVER });
+  });
+
+  test("Results page after vote (rematch already open)", async ({ page, device, table }) => {
+    await table.patch({
+      players: { [table.playerId("Ben")]: { cash: 2400 } },
+      endVote: { by: table.playerId("Ben"), agreed: [table.playerId("Clara")] },
+    });
+    await table.actor.testId("end-vote-yes").click();
+    await expect(table.actor.testId("game-over")).toBeVisible();
+    await expect(table.actor.testId("rematch")).toHaveText("Revanche");
+    // Ben asks for the rematch first: Anna's page now offers to join it
+    await table.api.rematch(table.seat("Ben"));
+    await expect(table.actor.testId("rematch")).toHaveText("Revanche beitreten");
+    await expect(table.actor.testId("new-game")).toBeVisible();
+    await verifyScreen(page, device, "results-rematch-open", { scope: GAME_OVER });
+  });
+
+  test("Results page (rematch refused: lobby full)", async ({ page, device, table }) => {
+    await table.patch({
+      players: { [table.playerId("Ben")]: { cash: 2400 } },
+      endVote: { by: table.playerId("Ben"), agreed: [table.playerId("Clara")] },
+    });
+    await table.actor.testId("end-vote-yes").click();
+    await expect(table.actor.testId("game-over")).toBeVisible();
+    // Ben opens the rematch, two strangers take the other seats before Anna asks
+    const lobby = await table.api.rematch(table.seat("Ben"));
+    await table.api.join(lobby, "Dora");
+    await table.api.join(lobby, "Emil");
+    await table.actor.testId("rematch").click();
+    await expect(table.actor.testId("rematch-error")).toHaveText("Das Spiel ist voll.");
+    await verifyScreen(page, device, "results-rematch-full", { scope: GAME_OVER });
   });
 
   test("Menu tabs in the bottom sheet", async ({ page, device, table }) => {

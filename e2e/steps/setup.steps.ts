@@ -48,6 +48,13 @@ Given(
 );
 
 Given(
+  "{player} and {player} play a game in {country} with a bot",
+  async ({ world }, host: string, guest: string, themeId: string) => {
+    await startGame(world, host, guest, themeId, { bots: 1 });
+  },
+);
+
+Given(
   "{player} and {player} play a game in {country} with a time limit of {int} seconds",
   async ({ world }, host: string, guest: string, themeId: string, seconds: number) => {
     await startGame(world, host, guest, themeId, { turnTimeoutSec: seconds });
