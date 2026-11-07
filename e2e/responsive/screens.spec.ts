@@ -107,6 +107,13 @@ test.describe("Start page and invitation", () => {
     await expect(page.getByTestId("remove-seat-dialog")).toBeVisible();
     await expectVisibleWithoutScrolling(page.getByTestId("remove-seat-confirm"), "Remove");
     await expectVisibleWithoutScrolling(page.getByTestId("remove-seat-cancel"), "Cancel");
+    // the title names the person, so the action stays one line even with a long name
+    const lines = await page.getByTestId("remove-seat-confirm").evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+    });
+    expect(lines, "remove button label lines").toBe(1);
     await verifyScreen(page, device, "remove-seat-dialog", { scope: REMOVE_SEAT_DIALOG });
   });
 });

@@ -190,6 +190,7 @@ export const it = {
   "lobby.removeSeatTitle": "Rimuovere {name} dal tavolo?",
   "lobby.removeSeatBody": "{name} perde il posto e può tornare solo con il link d'invito.",
   "lobby.removeSeatCancel": "Tieni",
+  "lobby.removeSeatConfirm": "Rimuovi",
   "lobby.freeSeat": "Posto libero",
   "lobby.inviteLink": "Link d'invito",
   "lobby.copyLink": "Copia il link",

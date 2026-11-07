@@ -193,6 +193,7 @@ export const fr = {
   "lobby.removeSeatTitle": "Retirer {name} de la table ?",
   "lobby.removeSeatBody": "{name} perd sa place et ne peut revenir qu'avec le lien d'invitation.",
   "lobby.removeSeatCancel": "Garder",
+  "lobby.removeSeatConfirm": "Retirer",
   "lobby.freeSeat": "Place libre",
   "lobby.inviteLink": "Lien d'invitation",
   "lobby.copyLink": "Copier le lien",

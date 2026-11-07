@@ -176,6 +176,7 @@ export const gsw = {
   "lobby.removeSeatBody":
     "{name} verliert de Platz und chan nume mit em Iiladigslink wider mitmache.",
   "lobby.removeSeatCancel": "Bhalte",
+  "lobby.removeSeatConfirm": "Entferne",
   "lobby.freeSeat": "Freie Platz",
   "lobby.inviteLink": "Iiladigslink",
   "lobby.copyLink": "Link kopiere",

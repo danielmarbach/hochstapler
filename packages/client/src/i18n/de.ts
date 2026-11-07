@@ -194,6 +194,7 @@ export const de = {
   "lobby.removeSeatBody":
     "{name} verliert den Platz und kann nur mit dem Einladungslink wieder beitreten.",
   "lobby.removeSeatCancel": "Behalten",
+  "lobby.removeSeatConfirm": "Entfernen",
   "lobby.freeSeat": "Freier Platz",
   "lobby.inviteLink": "Einladungslink",
   "lobby.copyLink": "Link kopieren",

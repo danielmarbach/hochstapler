@@ -256,7 +256,7 @@ export function Lobby() {
                   void run(() => api.removeSeat(lobby.gameId, playerId));
                 }}
               >
-                {t("lobby.removeSeat", { name: removing.name })}
+                {t("lobby.removeSeatConfirm")}
               </button>
               {/* the safe answer has the focus: a destructive confirmation never starts on "yes" */}
               <button
