@@ -80,7 +80,6 @@ export function Lobby() {
       <div class="page center right">
         <div class="panel lobby">
           <PosterBand themeId={lobby.settings.themeId} label={t("band.lobby")} />
-          <div class="eyebrow">{t("lobby.eyebrow")}</div>
           <h1 class="small">
             {theme.flag} {themeText(theme, getLang()).name}
           </h1>

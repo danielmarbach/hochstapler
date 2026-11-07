@@ -170,7 +170,6 @@ export const it = {
   "home.creating": "Creazione …",
 
   // ---- join ----
-  "join.eyebrow": "Sei stato invitato",
   "join.lead": "{flag} {country} · {taken} posti occupati su {max}",
   "join.nameRequired": "Inserisci un nome.",
   "join.submit": "Unisciti",
@@ -182,7 +181,6 @@ export const it = {
 
   // ---- lobby ----
   "lobby.connecting": "Connessione …",
-  "lobby.eyebrow": "Sala d'attesa",
   "lobby.seats": "{taken} posti su {max}",
   "lobby.limit": "Limite di tempo {value}",
   "lobby.noLimit": "senza limite di tempo",
@@ -205,6 +203,7 @@ export const it = {
 
   // ---- HUD ----
   "hud.followCam": "La telecamera segue la pedina",
+  "hud.followCamShort": "Telecamera",
   "hud.glow": "Bagliore",
   "hud.glowTitle": "Bagliore sì/no",
   "hud.home": "Home",
@@ -213,9 +212,9 @@ export const it = {
   "hud.stamp": "{group}: {owned}/{total}",
   "hud.stampFull": "{group}: {owned}/{total} · gruppo completo",
   "player.meta": "{token} · {n} caselle",
-  "player.inJail": "🔒 Questura",
+  "player.inJail": "Questura",
   "badge.bankrupt": "Bancarotta",
-  "badge.bot": "🤖 Bot",
+  "badge.bot": "Bot",
   "badge.away": "Assente (gioca un bot)",
   "turn.tag": "Tocca a te",
   "turn.isOn": "Turno di {name}",
@@ -274,6 +273,7 @@ export const it = {
   "sheet.tab.trades": "Scambio",
   "sheet.tab.log": "Registro",
   "sheet.giveUp": "Arrenditi (bancarotta)",
+  "action.giveUp": "Arrenditi",
   "sheet.spectatorNoProps": "Gli spettatori non possiedono nulla.",
 
   // ---- action bar ----

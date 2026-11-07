@@ -8,7 +8,7 @@ export function GameGone() {
       <Backdrop themeId="ch" offsetX={0.14} offsetY={-0.13} />
       <div class="page center right">
         <div class="panel join" role="alert" data-testid="game-gone">
-          <div class="eyebrow">{t("gone.title")}</div>
+          <h1 class="small">{t("gone.title")}</h1>
           <p class="lead">{t("gone.lead")}</p>
           <p class="note">{t("gone.hint")}</p>
           <a class="cta" data-testid="game-gone-home" href="#/">

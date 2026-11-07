@@ -23,6 +23,7 @@ import { asGame, money, useTheme, useThemeText } from "./util.tsx";
 import { useGate } from "./gate.ts";
 import { BankruptcyDialog, type BankruptcyKind } from "./Bankruptcy.tsx";
 import { debtCreditorName, debtShortfall, noBreak } from "./debt.ts";
+import { Icon } from "./icons.tsx";
 
 /** pre-filled auto-bid maximum: this far above the current highest bid (bounded by what the player can raise) */
 const AUTO_BID_DEFAULT_ROOM = 100;
@@ -517,14 +518,15 @@ function ActionBarFor({
           </button>
           {legal.includes("declare-bankruptcy") ? null : (
             <button
-              class="x"
+              class="x giveup"
               data-testid="action-give-up"
               title={t("action.bankruptTitle")}
-              aria-label={t("action.bankruptTitle")}
+              aria-label={t("sheet.giveUp")}
               disabled={busy || me.bankrupt}
               onClick={() => setConfirming("giveUp")}
             >
-              ⚑
+              <Icon name="flag" />
+              <span class="tlabel">{t("action.giveUp")}</span>
             </button>
           )}
         </div>

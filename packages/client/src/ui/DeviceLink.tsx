@@ -8,6 +8,7 @@ import { resumeLink } from "../net/route.ts";
 import { rotateSeatToken } from "../net/ws.ts";
 import { errMsg } from "./util.tsx";
 import { Modal } from "./Modal.tsx";
+import { Icon } from "./icons.tsx";
 import "./device-link.css";
 
 /** Menu entry "continue on another device": a round pill in the game HUD, a text button in the lobby. */
@@ -24,7 +25,7 @@ export function DeviceLinkButton({ variant }: { variant: "pill" | "ghost" }) {
           aria-label={label}
           onClick={() => setOpen(true)}
         >
-          📲
+          <Icon name="phone" />
         </button>
       ) : (
         <button class="ghost" data-testid="device-link-open" onClick={() => setOpen(true)}>

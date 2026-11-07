@@ -18,6 +18,7 @@ import type { PowTicket } from "../net/pow.ts";
 import { saveJoin } from "../net/store.ts";
 import { BOT_LEVELS, errMsg, nav } from "./util.tsx";
 import { Backdrop } from "./Backdrop.tsx";
+import { Icon } from "./icons.tsx";
 import { LangPills } from "./LangPicker.tsx";
 import { Poster } from "./Poster.tsx";
 import { TokenIcon } from "./TokenIcon.tsx";
@@ -242,7 +243,7 @@ export function Home() {
               {bots.map((b, i) => (
                 <div class="botrow" key={i} data-testid="bot-row">
                   <span class="botico" aria-hidden="true">
-                    🤖
+                    <Icon name="bot" size={22} />
                   </span>
                   <span>{t("home.botN", { n: i + 1 })}</span>
                   <div class="seg">

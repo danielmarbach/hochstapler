@@ -260,7 +260,7 @@ export class Actor {
     );
   }
 
-  /** opens the game menu ("⋯" next to the camera buttons) */
+  /** opens the game menu (the menu button next to the camera buttons) */
   async openMenu(): Promise<void> {
     if (!(await this.testId("game-menu").isVisible())) {
       await this.testId("menu-toggle").click();

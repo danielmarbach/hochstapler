@@ -124,7 +124,6 @@ export function Results() {
     >
       <div class="panel results" data-testid="game-over">
         <header class="results-head">
-          <div class="eyebrow">{t("gameover.title")}</div>
           {/* the winner is announced first: the heading takes the initial focus */}
           <h1 class="small" data-testid="winner" tabIndex={-1} data-autofocus>
             {winner ? t("gameover.winner", { name: winner.name }) : t("gameover.draw")}

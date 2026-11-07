@@ -113,7 +113,6 @@ export function Join({ gameId, code }: { gameId: string; code: string }) {
       <div class="page center right">
         <form class="panel join" onSubmit={join}>
           <PosterBand themeId={lobby?.settings.themeId ?? "ch"} label={t("band.invite")} />
-          <div class="eyebrow">{t("join.eyebrow")}</div>
           <h1 class="small">
             Hoch<span>stapler</span>
           </h1>

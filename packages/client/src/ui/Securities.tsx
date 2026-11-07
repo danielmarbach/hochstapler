@@ -31,6 +31,7 @@ import { debtAfterSale, debtShortfall } from "./debt.ts";
 import { sendAction } from "../net/ws.ts";
 import { asGame, playerName, useGameState, useTheme, useThemeText } from "./util.tsx";
 import { useGate } from "./gate.ts";
+import { Icon } from "./icons.tsx";
 import { decayHint, dividendSummary, yieldPermilleText } from "./dividends.ts";
 
 const SECTOR_KEYS = {
@@ -429,7 +430,7 @@ export function SecuritiesPanel() {
                       data-testid="lot-lock"
                       data-rounds={left}
                     >
-                      {left > 0 ? "🔒 " : ""}
+                      {left > 0 && <Icon name="lock" size={14} class="inline" />}
                       {lockText(left)}
                     </span>
                     <button

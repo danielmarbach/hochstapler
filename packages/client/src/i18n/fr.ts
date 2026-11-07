@@ -172,7 +172,6 @@ export const fr = {
   "home.creating": "Création …",
 
   // ---- join ----
-  "join.eyebrow": "Tu es invité",
   "join.lead": "{flag} {country} · {taken} places sur {max} occupées",
   "join.nameRequired": "Saisis un nom.",
   "join.submit": "Rejoindre",
@@ -184,7 +183,6 @@ export const fr = {
 
   // ---- lobby ----
   "lobby.connecting": "Connexion …",
-  "lobby.eyebrow": "Salle d'attente",
   "lobby.seats": "{taken} places sur {max}",
   "lobby.limit": "Limite de temps {value}",
   "lobby.noLimit": "sans limite de temps",
@@ -208,6 +206,7 @@ export const fr = {
 
   // ---- HUD ----
   "hud.followCam": "La caméra suit le pion",
+  "hud.followCamShort": "Caméra",
   "hud.glow": "Lueur",
   "hud.glowTitle": "Lueur activée/désactivée",
   "hud.home": "Accueil",
@@ -216,9 +215,9 @@ export const fr = {
   "hud.stamp": "{group} : {owned}/{total}",
   "hud.stampFull": "{group} : {owned}/{total} · groupe complet",
   "player.meta": "{token} · {n} cases",
-  "player.inJail": "🔒 Garde à vue",
+  "player.inJail": "Garde à vue",
   "badge.bankrupt": "Faillite",
-  "badge.bot": "🤖 Bot",
+  "badge.bot": "Bot",
   "badge.away": "Absent (un bot joue)",
   "turn.tag": "À toi",
   "turn.isOn": "Tour de {name}",
@@ -278,6 +277,7 @@ export const fr = {
   "sheet.tab.trades": "Échange",
   "sheet.tab.log": "Journal",
   "sheet.giveUp": "Abandonner (faillite)",
+  "action.giveUp": "Abandonner",
   "sheet.spectatorNoProps": "Les spectateurs ne possèdent rien.",
 
   // ---- action bar ----

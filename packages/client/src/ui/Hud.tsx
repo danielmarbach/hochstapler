@@ -39,6 +39,7 @@ import { BottomSheet } from "./Sheet.tsx";
 import { Toasts } from "./Toasts.tsx";
 import { TokenIcon } from "./TokenIcon.tsx";
 import { inkOn } from "./palette.ts";
+import { Icon } from "./icons.tsx";
 
 export function Hud() {
   const theme = useTheme();
@@ -69,22 +70,24 @@ export function Hud() {
         {!phone && (
           <>
             <button
-              class={`pill round ${follow ? "on" : ""}`}
+              class={`pill round tool ${follow ? "on" : ""}`}
               title={t("hud.followCam")}
               aria-label={t("hud.followCam")}
               aria-pressed={follow}
               onClick={() => set({ followCam: !follow })}
             >
-              🎥
+              <Icon name="camera" />
+              <span class="tlabel">{t("hud.followCamShort")}</span>
             </button>
             <button
-              class={`pill round ${bloom ? "on" : ""}`}
+              class={`pill round tool ${bloom ? "on" : ""}`}
               title={t("hud.glowTitle")}
               aria-label={t("hud.glow")}
               aria-pressed={bloom}
               onClick={() => set({ bloom: !bloom })}
             >
-              ✨
+              <Icon name="glow" />
+              <span class="tlabel">{t("hud.glow")}</span>
             </button>
           </>
         )}
@@ -98,7 +101,8 @@ export function Hud() {
                 aria-checked={follow}
                 onClick={() => set({ followCam: !follow })}
               >
-                🎥 {t("hud.followCam")}
+                <Icon name="camera" size={18} />
+                {t("hud.followCam")}
               </button>
               <button
                 class={`ghost ${bloom ? "on" : ""}`}
@@ -106,18 +110,20 @@ export function Hud() {
                 aria-checked={bloom}
                 onClick={() => set({ bloom: !bloom })}
               >
-                ✨ {t("hud.glowTitle")}
+                <Icon name="glow" size={18} />
+                {t("hud.glowTitle")}
               </button>
             </>
           )}
         </GameMenu>
         <button
-          class="pill round"
+          class="pill round tool"
           title={t("hud.home")}
           aria-label={t("hud.home")}
           onClick={() => nav("#/")}
         >
-          ⌂
+          <Icon name="home" />
+          <span class="tlabel">{t("hud.home")}</span>
         </button>
       </div>
       {!connected && (
@@ -254,6 +260,7 @@ function Badge({ p, online }: { p: PlayerState; online: boolean }) {
   if (p.controller === "bot")
     return (
       <span class="badge" data-testid="player-badge" title={t("badge.bot")}>
+        <Icon name="bot" size={14} class="inline" />
         {t("badge.bot")}
       </span>
     );
@@ -372,8 +379,29 @@ export function PlayerPanels({
               </div>
               <div class="pmeta" data-testid="player-meta">
                 {t("player.meta", { token: tok, n: props })}
-                {p.inJail ? ` · ${t("player.inJail")}` : ""}
-                {p.jailCards.length ? ` · 🎟 ${p.jailCards.length}` : ""}
+                {p.inJail && (
+                  <>
+                    {" · "}
+                    <span class="ico-text">
+                      <Icon name="lock" size={14} class="inline" />
+                      {t("player.inJail")}
+                    </span>
+                  </>
+                )}
+                {p.jailCards.length > 0 && (
+                  <>
+                    {" · "}
+                    <span
+                      class="ico-text"
+                      title={t("trade.jailCards", { n: p.jailCards.length })}
+                      role="img"
+                      aria-label={t("trade.jailCards", { n: p.jailCards.length })}
+                    >
+                      <Icon name="ticket" size={14} class="inline" />
+                      {p.jailCards.length}
+                    </span>
+                  </>
+                )}
               </div>
               {state.settings.loans && loanBadge(asGame(state), p, lang) !== null && (
                 <div class="ploan" data-testid="player-loan">
