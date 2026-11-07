@@ -16,6 +16,9 @@ import { sendAction } from "../net/ws.ts";
 import { set, useApp } from "../net/store.ts";
 import { tileKindText } from "../i18n/labels.ts";
 import { buyInfo } from "./buy-info.ts";
+import { defaultBid, stepBid } from "./bid.ts";
+import { inkOn } from "./palette.ts";
+import { TokenIcon } from "./TokenIcon.tsx";
 import { asGame, money, useTheme, useThemeText } from "./util.tsx";
 import { useGate } from "./gate.ts";
 import { BankruptcyDialog, type BankruptcyKind } from "./Bankruptcy.tsx";
@@ -23,8 +26,9 @@ import { debtCreditorName, debtShortfall, noBreak } from "./debt.ts";
 
 /** pre-filled auto-bid maximum: this far above the current highest bid (bounded by what the player can raise) */
 const AUTO_BID_DEFAULT_ROOM = 100;
-/** quick raises next to the bid slider */
-const BID_STEPS = [10, 50] as const;
+/** the - / + buttons next to the bid amount move it by this much; the extra chip raises it by the larger jump */
+const BID_STEP = 10;
+const BID_JUMP = 50;
 
 /**
  * "You owe Ben CHF 900 · you are CHF 850 short": whom the debt is owed to (null = bank) and what the cash does not cover.
@@ -90,13 +94,16 @@ function ActionBarFor({
   const [bid, setBid] = useState(0);
   const hb = phase.type === "auction" ? phase.auction.highestBid : 0;
   useEffect(() => {
-    setBid(hb + Math.max(10, Math.round(hb * 0.1)));
+    setBid(defaultBid(hb));
   }, [hb, phase.type]);
 
   // auto-bid input: null = not touched yet (a sensible default is derived from the highest bid)
   const [autoMax, setAutoMax] = useState<number | null>(null);
+  // the auto-bid controls take the place of the manual bid while they are open: one bidding model at a time
+  const [autoOpen, setAutoOpen] = useState(false);
   useEffect(() => {
     setAutoMax(null);
+    setAutoOpen(false);
   }, [phase.type]);
 
   if (!me) return null;
@@ -115,6 +122,17 @@ function ActionBarFor({
     ) : null;
   const again = phase.type === "await-end-turn" && phase.canRollAgain;
   const isMyTurn = state.players[state.current]?.id === you;
+  /** the own bid is the only decision: trading, securities, loans and giving up would only compete with it */
+  const biddingNow = phase.type === "auction" && phase.auction.turn === you;
+  const propertiesButton = (
+    <button
+      class="pill"
+      data-testid="open-properties"
+      onClick={() => set({ drawerOpen: true, drawerTab: "props" })}
+    >
+      {t("action.properties")}
+    </button>
+  );
 
   let main: preact.ComponentChildren;
   let plain = false;
@@ -128,33 +146,57 @@ function ActionBarFor({
     const autoValid = Number.isInteger(autoValue) && autoValue > hb && autoValue <= maxBid;
     const bidValid = Number.isInteger(bid) && bid > hb && bid <= maxBid;
     const listed = at(BOARD, a.tile).price;
+    const turnName = state.players.find((p) => p.id === a.turn)?.name ?? "?";
     main = (
-      <div class="auction" data-testid="auction">
+      <div class={`auction${myTurn ? " mine" : ""}`} data-testid="auction">
         <div class="atitle">
           {t("auction.title")} · <b>{theme.tileNames[a.tile]}</b>
+        </div>
+        <div class="ameta">
           {listed !== undefined && (
             <small data-testid="auction-listed">
               {t("auction.listed", { price: money(theme, listed) })}
             </small>
           )}
+          <p class="aturn" data-testid="auction-turn" role="status">
+            {myTurn ? t("auction.yourTurn") : t("auction.waitFor", { name: turnName })}
+          </p>
         </div>
-        <div class="asub" data-testid="auction-highest">
-          {t("auction.highest")} {a.highestBid > 0 ? <b>{money(theme, a.highestBid)}</b> : "–"}
-          {bidder ? ` ${t("auction.by", { name: bidder.name })}` : ""}
+        <div class="alot">
+          <div
+            class={`aleader${bidder ? "" : " none"}`}
+            data-testid="auction-leader"
+            style={bidder ? { "--pc": bidder.color, "--pt": inkOn(bidder.color) } : undefined}
+          >
+            <span class="aseal" aria-hidden="true">
+              {bidder ? <TokenIcon id={bidder.tokenId} size={34} /> : "?"}
+            </span>
+            <div class="atext" data-testid="auction-highest">
+              <span class="alabel">{t("auction.highest")}</span>{" "}
+              <b class="abid">{a.highestBid > 0 ? money(theme, a.highestBid) : "–"}</b>{" "}
+              <span class="aby">
+                {bidder ? t("auction.by", { name: bidder.name }) : t("auction.noBid")}
+              </span>
+            </div>
+          </div>
+          <div class="acash" data-testid="auction-cash">
+            <span class="alabel">{t("auction.yourCash")}</span>{" "}
+            <b class="abid">{money(theme, me.cash)}</b>
+          </div>
         </div>
-        {myTurn && !busy ? (
+        {myTurn && !busy && !autoOpen && (
           <div class="bidrow">
-            <input
-              type="range"
-              data-testid="bid-slider"
-              aria-label={t("auction.bidLabel")}
-              min={hb + 1}
-              max={Math.max(hb + 1, maxBid)}
-              value={bid}
-              onInput={(e) => setBid(Number((e.target as HTMLInputElement).value))}
-            />
-            {/* UI review F09: exact amounts without fiddling with the slider */}
-            <div class="bidstep">
+            {/* UI review F09: exact amounts stay possible, the amount itself is the field between - and + */}
+            <div class="bidstep" role="group" aria-label={t("auction.amountLabel")}>
+              <button
+                type="button"
+                class="ghost step"
+                data-testid={`bid-minus-${BID_STEP}`}
+                aria-label={t("auction.lower", { n: BID_STEP })}
+                onClick={() => setBid(stepBid(bid, -BID_STEP, hb, maxBid))}
+              >
+                −
+              </button>
               <input
                 type="number"
                 inputMode="numeric"
@@ -166,91 +208,117 @@ function ActionBarFor({
                 step={AUTO_BID_STEP}
                 value={bid}
                 onInput={(e) => setBid(Number((e.target as HTMLInputElement).value))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && bidValid && can("bid")) {
+                    act({ type: "bid", amount: bid });
+                  }
+                }}
               />
-              {BID_STEPS.map((step) => (
-                <button
-                  type="button"
-                  key={step}
-                  class="ghost slim"
-                  data-testid={`bid-plus-${step}`}
-                  aria-label={t("auction.raise", { n: step })}
-                  onClick={() => setBid(Math.min(maxBid, Math.max(hb + 1, bid + step)))}
-                >
-                  +{step}
-                </button>
-              ))}
+              <button
+                type="button"
+                class="ghost step"
+                data-testid={`bid-plus-${BID_STEP}`}
+                aria-label={t("auction.raise", { n: BID_STEP })}
+                onClick={() => setBid(stepBid(bid, BID_STEP, hb, maxBid))}
+              >
+                +
+              </button>
+              <button
+                type="button"
+                class="ghost step jump"
+                data-testid={`bid-plus-${BID_JUMP}`}
+                aria-label={t("auction.raise", { n: BID_JUMP })}
+                onClick={() => setBid(stepBid(bid, BID_JUMP, hb, maxBid))}
+              >
+                +{BID_JUMP}
+              </button>
             </div>
-            <button
-              class="cta slim"
-              data-testid="action-bid"
-              disabled={!can("bid") || !bidValid}
-              onClick={() => act({ type: "bid", amount: bid })}
-            >
-              {t("auction.bid", { amount: money(theme, bid) })}
-            </button>
-            <button
-              class="ghost"
-              data-testid="action-pass"
-              disabled={!can("pass-auction")}
-              onClick={() => act({ type: "pass-auction" })}
-            >
-              {t("auction.pass")}
-            </button>
+            <div class="bidgo">
+              <button
+                class="cta slim"
+                data-testid="action-bid"
+                disabled={!can("bid") || !bidValid}
+                onClick={() => act({ type: "bid", amount: bid })}
+              >
+                {t("auction.bid", { amount: money(theme, bid) })}
+              </button>
+              <button
+                class="ghost"
+                data-testid="action-pass"
+                disabled={!can("pass-auction")}
+                onClick={() => act({ type: "pass-auction" })}
+              >
+                {t("auction.pass")}
+              </button>
+            </div>
             {!bidValid && (
               <p class="asub bidhint" role="status">
                 {t("auction.range", { min: money(theme, hb + 1), max: money(theme, maxBid) })}
               </p>
             )}
           </div>
-        ) : (
-          <div class="asub">
-            {t("auction.waitFor", {
-              name: state.players.find((p) => p.id === a.turn)?.name ?? "?",
-            })}
-          </div>
         )}
-        {can("set-auto-bid") && myAuto !== undefined && (
-          <div class="autobid" data-testid="autobid">
-            <span class="asub" data-testid="autobid-active">
-              {t("auction.autoActive", { amount: money(theme, myAuto) })}
-            </span>
-            <button
-              class="ghost"
-              data-testid="autobid-cancel"
-              onClick={() => act({ type: "set-auto-bid", max: null })}
-            >
-              {t("auction.autoCancel")}
-            </button>
-          </div>
-        )}
-        {can("set-auto-bid") && myAuto === undefined && maxBid > hb && (
-          <div class="autobid" data-testid="autobid">
-            <label class="autolabel">
-              {t("auction.autoLabel")}
-              <input
-                type="number"
-                inputMode="numeric"
-                data-testid="autobid-input"
-                min={hb + 1}
-                max={maxBid}
-                step={AUTO_BID_STEP}
-                value={autoValue}
-                onInput={(e) => setAutoMax(Number((e.target as HTMLInputElement).value))}
-              />
-            </label>
-            <button
-              class="ghost"
-              data-testid="autobid-set"
-              disabled={!autoValid}
-              onClick={() => act({ type: "set-auto-bid", max: autoValue })}
-            >
-              {t("auction.autoSet")}
-            </button>
-            <p class="asub autohint" data-testid="autobid-hint">
-              {t("auction.autoHint", { step: AUTO_BID_STEP })}
-            </p>
-          </div>
-        )}
+        <div class="aextra">
+          {can("set-auto-bid") && myAuto !== undefined && (
+            <div class="autobid active" data-testid="autobid">
+              <span class="asub" data-testid="autobid-active">
+                {t("auction.autoActive", { amount: money(theme, myAuto) })}
+              </span>
+              <button
+                class="ghost"
+                data-testid="autobid-cancel"
+                onClick={() => act({ type: "set-auto-bid", max: null })}
+              >
+                {t("auction.autoCancel")}
+              </button>
+            </div>
+          )}
+          {can("set-auto-bid") && myAuto === undefined && maxBid > hb && (
+            <div class="autobid" data-testid="autobid">
+              <button
+                type="button"
+                class="autotoggle"
+                data-testid="autobid-toggle"
+                aria-expanded={autoOpen}
+                onClick={() => setAutoOpen(!autoOpen)}
+              >
+                {t("auction.autoToggle")}
+              </button>
+              {autoOpen && (
+                <div class="autobody">
+                  <label class="autolabel">
+                    {t("auction.autoLabel")}
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      data-testid="autobid-input"
+                      min={hb + 1}
+                      max={maxBid}
+                      step={AUTO_BID_STEP}
+                      value={autoValue}
+                      onInput={(e) => setAutoMax(Number((e.target as HTMLInputElement).value))}
+                    />
+                  </label>
+                  <button
+                    class="ghost"
+                    data-testid="autobid-set"
+                    disabled={!autoValid}
+                    onClick={() => {
+                      act({ type: "set-auto-bid", max: autoValue });
+                      setAutoOpen(false);
+                    }}
+                  >
+                    {t("auction.autoSet")}
+                  </button>
+                  <p class="asub autohint" data-testid="autobid-hint">
+                    {t("auction.autoHint", { step: AUTO_BID_STEP })}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          {biddingNow && !compact && propertiesButton}
+        </div>
       </div>
     );
   } else if (phase.type === "await-buy" && isMyTurn) {
@@ -419,52 +487,48 @@ function ActionBarFor({
     );
   }
   return (
-    <div class="actionbar panel" data-testid="action-bar">
+    <div class={`actionbar panel${autoOpen ? " autoing" : ""}`} data-testid="action-bar">
       <div class="amain">
         {main}
         {gateNote}
       </div>
       {confirmDialog}
-      <div class="asec">
-        <button
-          class="pill"
-          data-testid="open-properties"
-          onClick={() => set({ drawerOpen: true, drawerTab: "props" })}
-        >
-          {t("action.properties")}
-        </button>
-        {state.market && (
+      {!biddingNow && (
+        <div class="asec">
+          {propertiesButton}
+          {state.market && (
+            <button
+              class="pill"
+              data-testid="open-securities"
+              onClick={() => set({ drawerOpen: true, drawerTab: "securities" })}
+            >
+              {t("action.securities")}
+            </button>
+          )}
+          {loanButton("pill")}
           <button
             class="pill"
-            data-testid="open-securities"
-            onClick={() => set({ drawerOpen: true, drawerTab: "securities" })}
+            data-testid="open-trade"
+            disabled={!legal.includes("propose-trade") && pendingIn === 0}
+            onClick={() => set({ tradeOpen: true })}
           >
-            {t("action.securities")}
+            {t("action.trade")}
+            {pendingIn > 0 && <i class="pip">{pendingIn}</i>}
           </button>
-        )}
-        {loanButton("pill")}
-        <button
-          class="pill"
-          data-testid="open-trade"
-          disabled={!legal.includes("propose-trade") && pendingIn === 0}
-          onClick={() => set({ tradeOpen: true })}
-        >
-          {t("action.trade")}
-          {pendingIn > 0 && <i class="pip">{pendingIn}</i>}
-        </button>
-        {legal.includes("declare-bankruptcy") ? null : (
-          <button
-            class="x"
-            data-testid="action-give-up"
-            title={t("action.bankruptTitle")}
-            aria-label={t("action.bankruptTitle")}
-            disabled={busy || me.bankrupt}
-            onClick={() => setConfirming("giveUp")}
-          >
-            ⚑
-          </button>
-        )}
-      </div>
+          {legal.includes("declare-bankruptcy") ? null : (
+            <button
+              class="x"
+              data-testid="action-give-up"
+              title={t("action.bankruptTitle")}
+              aria-label={t("action.bankruptTitle")}
+              disabled={busy || me.bankrupt}
+              onClick={() => setConfirming("giveUp")}
+            >
+              ⚑
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

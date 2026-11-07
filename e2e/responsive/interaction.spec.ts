@@ -258,8 +258,23 @@ test.describe("Text inputs on mobile (F12)", () => {
       phase: { type: "await-buy", tile },
     });
     await table.actor.action("decline").click();
+    await table.actor.testId("autobid-toggle").click();
     await expect(table.actor.testId("autobid-input")).toBeVisible();
     expect(await fontSize(table.actor.testId("autobid-input"))).toBeGreaterThanOrEqual(16);
+  });
+
+  test("auction bid amount field is 16px", async ({ page, device, table }) => {
+    test.skip(!device.touch, "mobile only");
+    await table.startGame();
+    const tile = table.tile("Weggisgasse");
+    await table.patch({
+      players: { [table.playerId("Anna")]: { position: tile } },
+      phase: { type: "await-buy", tile },
+    });
+    await table.actor.action("decline").click();
+    const ben = await table.openAs(table.seat("Ben"), "auction", await page.context().newPage());
+    await expect(ben.testId("bid-amount")).toBeVisible();
+    expect(await fontSize(ben.testId("bid-amount"))).toBeGreaterThanOrEqual(16);
   });
 
   test("lobby invitation field is 16px", async ({ device, table }) => {
