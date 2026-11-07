@@ -34,8 +34,9 @@ export default defineConfig({
   forbidOnly: !!process.env["CI"],
   retries: process.env["CI"] ? 1 : 0,
   workers: process.env["CI"] ? 2 : 4,
-  timeout: 60_000,
-  expect: { timeout: 10_000 },
+  // Software WebGL on a shared CI runner is several times slower than a laptop.
+  timeout: process.env["CI"] ? 120_000 : 60_000,
+  expect: { timeout: process.env["CI"] ? 20_000 : 10_000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,

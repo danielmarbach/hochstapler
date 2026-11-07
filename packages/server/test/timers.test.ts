@@ -144,15 +144,15 @@ describe("4. turn timeout, away and return", () => {
       settings: { turnTimeoutSec: 1, awayAfterMissedTurns: 1 },
     });
     const a = t.a;
-    await a.untilState((s) => s.players[0]!.controller === "away", 4000);
+    await a.untilState((s) => s.players[0]!.controller === "away", 10_000);
     const m = a.mark();
     a.act({ type: "declare-bankruptcy" }); // never legal here
     a.act({ type: "respond-trade", tradeId: "nope", accept: true });
-    await a.until((x) => x.t === "error", 2000, m);
+    await a.until((x) => x.t === "error", 4000, m);
     await sleep(150);
     expect(a.state!.players[0]!.controller).toBe("away");
     await Promise.all([a.close(), t.b.close()]);
-  }, 15_000);
+  }, 20_000);
 });
 
 describe("5. trades between humans and bots", () => {

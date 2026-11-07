@@ -33,14 +33,24 @@ jobs:
 
   e2e:
     if: github.event_name != 'schedule'
-    name: e2e (${{ matrix.project }})
+    name: e2e (${{ matrix.project }} ${{ matrix.shard }})
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        project:
-          [se-320, phone-390, phone-landscape, tablet-portrait, tablet-landscape, desktop-1440, security, desktop, mobile]
+        include:
+          - { project: se-320, shard: "1/1" }
+          - { project: phone-390, shard: "1/1" }
+          - { project: phone-landscape, shard: "1/1" }
+          - { project: tablet-portrait, shard: "1/1" }
+          - { project: tablet-landscape, shard: "1/1" }
+          - { project: desktop-1440, shard: "1/1" }
+          - { project: security, shard: "1/1" }
+          - { project: desktop, shard: "1/2" }
+          - { project: desktop, shard: "2/2" }
+          - { project: mobile, shard: "1/2" }
+          - { project: mobile, shard: "2/2" }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -51,13 +61,13 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e -- --project=${{ matrix.project }}
+      - run: npm run test:e2e -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}
         env:
           E2E_IGNORE_SNAPSHOTS: "1"
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: playwright-report-${{ matrix.project }}
+          name: playwright-report-${{ matrix.project }}-${{ strategy.job-index }}
           path: |
             playwright-report/
             test-results/
