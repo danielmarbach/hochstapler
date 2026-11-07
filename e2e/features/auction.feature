@@ -60,6 +60,44 @@ Feature: Auction
     And Ben places the bid
     Then the auction for Anna shows the highest bid 45 from Ben
 
+  Scenario: Ben bids with the stepper and the primary button
+    When Anna rolls
+    And Anna declines the purchase
+    Then it is Ben's turn to bid
+    When Ben raises the bid by 50
+    And Ben raises the bid by 10
+    And Ben lowers the bid by 10
+    Then the bid button of Ben offers 60
+    When Ben places the bid
+    Then the auction for Anna shows the highest bid 60 from Ben
+
+  Scenario: The auto-bid controls stay behind a disclosure until they are opened
+    When Anna rolls
+    And Anna declines the purchase
+    Then the auto-bid controls of Anna are collapsed
+    When Anna opens the auto-bid controls
+    Then the auto-bid controls of Anna are open
+
+  Scenario: The auction names the leading bidder, whose turn it is and the own cash
+    When Anna rolls
+    And Anna declines the purchase
+    Then the auction for Ben says "Du bist dran"
+    And the auction for Anna says "Ben ist mit Bieten dran"
+    When Ben bids 40
+    Then the auction for Anna shows Ben as the leading bidder
+    And the auction for Anna shows the own cash 2'000
+    And the auction for Ben shows the own cash 2'000
+    And the auction for Anna says "Du bist dran"
+
+  @desktop
+  Scenario: Only what matters is shown while Ben is bidding
+    When Anna rolls
+    And Anna declines the purchase
+    Then it is Ben's turn to bid
+    And Ben sees neither the trade button nor the give-up flag
+    And Ben still sees the properties button
+    And Anna sees the trade button
+
   Scenario: The HUD tells who is on the move and who is bidding
     When Anna rolls
     And Anna declines the purchase
@@ -69,4 +107,5 @@ Feature: Auction
   Scenario: The auto-bid maximum is explained
     When Anna rolls
     And Anna declines the purchase
+    When Anna opens the auto-bid controls
     Then Anna sees the explanation of the auto-bid maximum

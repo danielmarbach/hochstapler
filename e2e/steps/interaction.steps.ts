@@ -326,6 +326,10 @@ When("{player} raises the bid by {int}", async ({ world }, name: string, step: n
   await world.get(name).testId(`bid-plus-${step}`).click();
 });
 
+When("{player} lowers the bid by {int}", async ({ world }, name: string, step: number) => {
+  await world.get(name).testId(`bid-minus-${step}`).click();
+});
+
 Then("the bid amount of {player} shows {int}", async ({ world }, name: string, amount: number) => {
   await expect(world.get(name).testId("bid-amount")).toHaveValue(String(amount));
 });
@@ -347,6 +351,60 @@ Then(
     await expect(actor.panel(bidder).getByTestId("bidding-tag")).toHaveText("Bietet");
   },
 );
+
+Then(
+  "the bid button of {player} offers {amount}",
+  async ({ world }, name: string, amount: number) => {
+    await expect(world.get(name).action("bid")).toContainText(formatMoney(world.theme, amount));
+  },
+);
+
+Then("the auto-bid controls of {player} are collapsed", async ({ world }, name: string) => {
+  const actor = world.get(name);
+  await expect(actor.testId("autobid-toggle")).toBeVisible();
+  await expect(actor.testId("autobid-input")).toBeHidden();
+});
+
+Then("the auto-bid controls of {player} are open", async ({ world }, name: string) => {
+  await expect(world.get(name).testId("autobid-input")).toBeVisible();
+});
+
+Then("the auction for {player} says {string}", async ({ world }, name: string, text: string) => {
+  await expect(world.get(name).testId("auction-turn")).toContainText(text);
+});
+
+Then(
+  "the auction for {player} shows {player} as the leading bidder",
+  async ({ world }, name: string, leader: string) => {
+    await expect(world.get(name).testId("auction-leader")).toContainText(leader);
+  },
+);
+
+Then(
+  "the auction for {player} shows the own cash {amount}",
+  async ({ world }, name: string, cash: number) => {
+    await expect(world.get(name).testId("auction-cash")).toContainText(
+      formatMoney(world.theme, cash),
+    );
+  },
+);
+
+Then(
+  "{player} sees neither the trade button nor the give-up flag",
+  async ({ world }, name: string) => {
+    const actor = world.get(name);
+    await expect(actor.testId("open-trade")).toBeHidden();
+    await expect(actor.testId("action-give-up")).toBeHidden();
+  },
+);
+
+Then("{player} still sees the properties button", async ({ world }, name: string) => {
+  await expect(world.get(name).testId("open-properties")).toBeVisible();
+});
+
+Then("{player} sees the trade button", async ({ world }, name: string) => {
+  await expect(world.get(name).testId("open-trade")).toBeVisible();
+});
 
 Then("{player} sees the explanation of the auto-bid maximum", async ({ world }, name: string) => {
   await expect(world.get(name).testId("autobid-hint")).toBeVisible();

@@ -55,7 +55,7 @@ Then("an auction is running for {string}", async ({ world }, tile: string) => {
 });
 
 Then("it is {player}'s turn to bid", async ({ world }, name: string) => {
-  await expect(world.get(name).testId("bid-slider")).toBeVisible();
+  await expect(world.get(name).action("bid")).toBeVisible();
 });
 
 Then("{player} sees the debt notice {string}", async ({ world }, name: string, text: string) => {

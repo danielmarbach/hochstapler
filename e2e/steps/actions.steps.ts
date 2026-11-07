@@ -1,7 +1,15 @@
 // "When": what players do in their browser. Everything runs through clicks/taps on the UI.
 import { expect } from "@playwright/test";
 import type { Locator } from "@playwright/test";
+import type { Actor } from "../support/actor.ts";
 import { When } from "../support/fixtures.ts";
+
+/** the auto-bid controls sit behind a disclosure: open it unless it already is */
+async function openAutoBid(actor: Actor): Promise<void> {
+  if (!(await actor.testId("autobid-input").isVisible())) {
+    await actor.testId("autobid-toggle").click();
+  }
+}
 
 When("{player} rolls", async ({ world }, name: string) => {
   await world.get(name).action("roll").click();
@@ -21,14 +29,19 @@ When("{player} declines the purchase", async ({ world }, name: string) => {
 
 When("{player} bids {amount}", async ({ world }, name: string, amount: number) => {
   const actor = world.get(name);
-  await actor.testId("bid-slider").fill(String(amount));
+  await actor.testId("bid-amount").fill(String(amount));
   await actor.action("bid").click();
 });
 
 When("{player} sets an auto-bid up to {amount}", async ({ world }, name: string, max: number) => {
   const actor = world.get(name);
+  await openAutoBid(actor);
   await actor.testId("autobid-input").fill(String(max));
   await actor.testId("autobid-set").click();
+});
+
+When("{player} opens the auto-bid controls", async ({ world }, name: string) => {
+  await openAutoBid(world.get(name));
 });
 
 When("{player} passes", async ({ world }, name: string) => {

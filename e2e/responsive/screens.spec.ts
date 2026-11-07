@@ -277,15 +277,60 @@ test.describe("Game", () => {
     await verifyScreen(page, device, "chance-card", { scope: CARD });
   });
 
-  test("Auction", async ({ page, device, table }) => {
-    const tile = table.tile("Weggisgasse");
-    await table.patch({
-      players: { [table.playerId("Anna")]: { position: tile } },
-      phase: { type: "await-buy", tile },
+  test.describe("Auction", () => {
+    /** Anna lands on Weggisgasse and declines: Ben is first to bid, Anna waits */
+    test.beforeEach(async ({ table }) => {
+      const tile = table.tile("Weggisgasse");
+      await table.patch({
+        players: { [table.playerId("Anna")]: { position: tile } },
+        phase: { type: "await-buy", tile },
+      });
+      await table.actor.action("decline").click();
+      await expect(table.actor.testId("auction")).toBeVisible();
     });
-    await table.actor.action("decline").click();
-    await expect(table.actor.testId("auction")).toBeVisible();
-    await verifyScreen(page, device, "auction");
+
+    test("Waiting for the other bidder", async ({ page, device, table }) => {
+      await expect(table.actor.testId("auction-turn")).toBeVisible();
+      await expect(table.actor.testId("autobid-input")).toBeHidden();
+      await verifyScreen(page, device, "auction");
+    });
+
+    test("Auto-bid controls opened", async ({ page, device, table }) => {
+      await table.actor.testId("autobid-toggle").click();
+      await expect(table.actor.testId("autobid-input")).toBeVisible();
+      await verifyScreen(page, device, "auction-autobid");
+    });
+
+    test("Auto-bid active", async ({ page, device, table }) => {
+      await table.actor.testId("autobid-toggle").click();
+      await table.actor.testId("autobid-input").fill("200");
+      await table.actor.testId("autobid-set").click();
+      await expect(table.actor.testId("autobid-active")).toBeVisible();
+      await verifyScreen(page, device, "auction-autobid-active");
+    });
+
+    test("Own bid, nobody has bid yet", async ({ page, device, table }) => {
+      const benPage = await page.context().newPage();
+      const ben = await table.openAs(table.seat("Ben"), "auction", benPage);
+      await expect(ben.action("bid")).toBeVisible();
+      await verifyScreen(benPage, device, "auction-bid");
+    });
+
+    test("Own bid against a leader, auto-bid controls opened", async ({ page, device, table }) => {
+      // Ben leads with 120, so Clara, the next bidder, bids against him
+      const benPage = await page.context().newPage();
+      const ben = await table.openAs(table.seat("Ben"), "auction", benPage);
+      await ben.testId("bid-amount").fill("120");
+      await ben.action("bid").click();
+      await benPage.close();
+      const claraPage = await page.context().newPage();
+      const clara = await table.openAs(table.seat("Clara"), "auction", claraPage);
+      await expect(clara.testId("auction-leader")).toContainText("Ben");
+      await expect(clara.action("bid")).toBeVisible();
+      await clara.testId("autobid-toggle").click();
+      await expect(clara.testId("autobid-input")).toBeVisible();
+      await verifyScreen(claraPage, device, "auction-bid-leader");
+    });
   });
 
   test("Game over", async ({ page, device, table }) => {

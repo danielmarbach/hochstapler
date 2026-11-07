@@ -1593,26 +1593,211 @@ button.chip.on {
   color: var(--ink-2);
   margin-bottom: 6px;
 }
+/* the auction as a lot ticket: what is for sale, who leads and with how much, your cash on the stub, then the bid */
+.alot {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.aleader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.aseal {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px solid var(--ink);
+  background: var(--pc, var(--paper-2));
+  color: var(--pt, var(--ink));
+  box-shadow: 2px 2px 0 var(--ink);
+  font: 400 24px/1 var(--display);
+}
+.aleader.none .aseal {
+  border-style: dashed;
+  box-shadow: none;
+  color: var(--ink-2);
+}
+.atext,
+.acash {
+  display: grid;
+  min-width: 0;
+}
+.alabel {
+  font: 700 10px/1.2 var(--sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.abid {
+  font: 400 32px/1.05 var(--display);
+  letter-spacing: 0.04em;
+}
+.aby {
+  font: 700 14px/1.2 var(--sans);
+}
+.aleader.none .aby {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+/* your cash sits on a torn-off stub next to the bid */
+.acash {
+  align-content: center;
+  padding-left: 14px;
+  border-left: 2px dashed var(--ink-2);
+}
+.acash .abid {
+  font-size: 24px;
+}
+.auction .atitle {
+  margin-bottom: 4px;
+}
+.ameta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.ameta small {
+  font: 600 13px var(--sans);
+  color: var(--ink-2);
+}
+.aturn {
+  margin: 0;
+  font: 600 14px/1.2 var(--sans);
+  color: var(--ink-2);
+}
+.auction.mine .aturn {
+  padding: 4px 10px;
+  background: var(--gold);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  font: 400 15px/1.1 var(--display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
 .bidrow {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
-.bidrow input[type="range"] {
-  width: 160px;
-  min-height: 44px;
-  accent-color: var(--brand);
+/* UI review F09 / T02: the amount itself is the field, flanked by - and + (and a larger jump) */
+.bidstep {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.autobid {
+.bidstep .bidnum {
+  width: 92px;
+  min-height: 44px;
+  padding: 0 8px;
+  font: 600 20px var(--sans);
+  text-align: center;
+  color: var(--ink);
+  background: var(--paper, #fff);
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+}
+.bidstep .step {
+  font-family: var(--sans);
+  font-weight: 700;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 8px;
+  font-size: 22px;
+  line-height: 1;
+}
+.bidstep .step.jump {
+  font-size: 16px;
+}
+.bidgo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bidgo .cta {
+  min-height: 44px;
+}
+.bidrow .bidhint,
+.autobid .autohint {
+  flex-basis: 100%;
+  margin: 0;
+}
+/* auto-bid: a quiet disclosure under the bid, so the manual bid stays the only primary decision; open, it replaces it */
+/* the quiet row under the bid: the auto-bid toggle on the left, the properties shortcut on the right */
+.aextra {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 12px;
+  margin-top: 6px;
+}
+.aextra > .autobid:not(.active) {
+  display: contents;
+}
+.aextra .autotoggle {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+}
+.aextra > .pill {
+  grid-column: 2;
+  grid-row: 1;
+}
+.aextra .autobody {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+.aextra > .autobid.active {
+  grid-column: 1;
+  grid-row: 1;
+}
+.autobid.active {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: 6px;
 }
-.autobid .asub {
+.autobid.active .asub {
   margin: 0;
+}
+.autotoggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0;
+  background: none;
+  border: 0;
+  font: 600 14px var(--sans);
+  text-align: left;
+  color: var(--ink-2);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.autotoggle::before {
+  content: "▸";
+  font-size: 12px;
+}
+.autotoggle[aria-expanded="true"]::before {
+  content: "▾";
+}
+.autobody {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .autolabel {
   display: flex;
@@ -1630,31 +1815,6 @@ button.chip.on {
   background: var(--paper, #fff);
   border: 2px solid var(--ink);
   border-radius: 8px;
-}
-/* UI review F09 / T02: exact bid amount with +10 / +50, list price, auto-bid explanation, action gate note */
-.bidstep {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.bidstep .bidnum {
-  width: 84px;
-  min-height: 44px;
-  padding: 0 8px;
-  font: 600 16px var(--sans);
-  color: var(--ink);
-  background: var(--paper, #fff);
-  border: 2px solid var(--ink);
-  border-radius: 8px;
-}
-.bidstep .slim {
-  min-width: 52px;
-  min-height: 44px;
-}
-.bidrow .bidhint,
-.autobid .autohint {
-  flex-basis: 100%;
-  margin: 0;
 }
 /* the long explanation wraps to the width of the buttons and inputs: with the bar's `width: max-content` it must not
    widen the bar to the full screen width (it would cover the log button on tablets) */
@@ -2947,15 +3107,21 @@ dialog.modal-bg .endvote {
   }
   .sheet .actionbar.compact .bidrow {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
-  .sheet .actionbar.compact .bidrow input[type="range"] {
-    grid-column: 1 / -1;
+  .sheet .actionbar.compact .bidstep {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px 52px;
+  }
+  .sheet .actionbar.compact .bidstep .bidnum {
     width: 100%;
+    min-width: 0;
   }
-  .sheet .actionbar.compact .bidstep,
-  .sheet .actionbar.compact .bidhint {
-    grid-column: 1 / -1;
+  .sheet .actionbar.compact .bidgo > .cta {
+    flex: 2 1 0;
+  }
+  .sheet .actionbar.compact .bidgo > .ghost {
+    flex: 1 1 0;
   }
   .sheet-body {
     flex: 1;
@@ -3240,6 +3406,31 @@ dialog.modal-bg .endvote {
   .atitle {
     font-size: 20px;
     margin-bottom: 4px;
+  }
+  /* the auction ticket must fit the short right half below the log button: compact lot, nothing but the auto-bid
+     controls while they are open */
+  .aleader .alabel {
+    display: none;
+  }
+  .abid {
+    font-size: 26px;
+  }
+  .acash .abid {
+    font-size: 20px;
+  }
+  .aseal {
+    width: 42px;
+    height: 42px;
+  }
+  .alot,
+  .ameta {
+    margin-bottom: 4px;
+  }
+  .aextra {
+    margin-top: 2px;
+  }
+  .actionbar.autoing .asec {
+    display: none;
   }
   /* postcard as a two-column sheet: card text left, actions in their own column (a 390px-high screen has no room
      for header + rent table + three buttons stacked) */
