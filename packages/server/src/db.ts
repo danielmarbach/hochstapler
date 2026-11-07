@@ -24,6 +24,13 @@ import type { ExpiryPolicy } from "./retention.ts";
 
 export type { StoredLobby, StoredSeat } from "@poly/engine";
 
+/** One game row to write: what `save` takes, as a value (for `saveTogether`). */
+export interface SavedGame {
+  lobby: StoredLobby;
+  state: GameState | null;
+  activityAt?: number;
+}
+
 export interface GameRow {
   lobby: StoredLobby;
   state: GameState | null;
@@ -319,6 +326,25 @@ export class Db {
         activityAt ?? now,
         activityAt === undefined ? 0 : 1,
       );
+  }
+
+  /**
+   * Several games in ONE fenced transaction: all rows or none (a rematch lobby and the link to it must not be told
+   * apart by a crash). Throws the failure (fence, disk, serialisation) with nothing written.
+   */
+  saveTogether(rows: readonly SavedGame[]): void {
+    this.write(() =>
+      dbTimed("save", dbWriteDuration, () => {
+        this.db.exec("BEGIN IMMEDIATE");
+        try {
+          for (const r of rows) this.saveRow(r.lobby, r.state, r.activityAt);
+          this.db.exec("COMMIT");
+        } catch (e) {
+          this.db.exec("ROLLBACK");
+          throw e;
+        }
+      }),
+    );
   }
 
   /** A seated human opened the game (no state change): counts as activity. */

@@ -29,6 +29,14 @@ export interface StoredLobby {
   createdAt: number;
   /** host's chat controls (docs/DESIGN.md #69) */
   chat: ChatSettings;
+  /** the rematch of this finished game: the new lobby and the old seats that already took a seat there (#102) */
+  rematch?: StoredRematch;
+}
+
+export interface StoredRematch {
+  gameId: string;
+  /** player ids of the old game that sit in the new lobby: each seat gets one rematch seat, never two */
+  joined: PlayerId[];
 }
 
 export const StoredSeatSchema = z.object({
@@ -40,6 +48,11 @@ export const StoredSeatSchema = z.object({
   botLevel: z.enum(["easy", "normal", "hard"]),
   isHost: z.boolean(),
   tokenHash: z.string().max(128),
+});
+
+export const StoredRematchSchema = z.object({
+  gameId: z.string().min(1).max(64),
+  joined: z.array(z.string().min(1).max(16)).max(8),
 });
 
 export const StoredLobbySchema = z.object({
@@ -64,6 +77,8 @@ export const StoredLobbySchema = z.object({
   createdAt: z.number(),
   // lobbies stored before the chat controls existed: free chat, nobody muted (additive field)
   chat: ChatSettingsSchema.default(() => ({ ...DEFAULT_CHAT_SETTINGS, muted: [] })),
+  // games stored before the rematch existed have none (additive field)
+  rematch: StoredRematchSchema.optional(),
 });
 
 type Equals<A, B> =
@@ -71,5 +86,6 @@ type Equals<A, B> =
 type Assert<T extends true> = T;
 export type StoredSchemaContractChecks = [
   Assert<Equals<z.infer<typeof StoredSeatSchema>, StoredSeat>>,
+  Assert<Equals<z.infer<typeof StoredRematchSchema>, StoredRematch>>,
   Assert<Equals<z.infer<typeof StoredLobbySchema>, StoredLobby>>,
 ];

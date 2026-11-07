@@ -106,6 +106,25 @@ describe("H-1: global caps answer 503 'server full'", () => {
     expect(r.retryAfter).not.toBeNull();
   });
 
+  it("two simultaneous creations take the last free lobby slot only once", async () => {
+    ts = await startTestServer({ limits: { maxOpenLobbies: 1 } });
+    const server = ts;
+    const proofs = [await solvedPowHeaders(server.base), await solvedPowHeaders(server.base)];
+    const answers = await Promise.all(
+      proofs.map(async (proof) => {
+        const r = await fetch(`${server.base}/api/games`, {
+          method: "POST",
+          headers: { "content-type": "application/json", ...proof },
+          body: JSON.stringify(NEW_GAME),
+        });
+        return { status: r.status, json: (await r.json()) as Record<string, unknown> };
+      }),
+    );
+    expect(answers.map((a) => a.status).sort()).toEqual([201, 503]);
+    expect(answers.find((a) => a.status === 503)?.json["error"]).toBe(SERVER_FULL_MESSAGE);
+    expect(server.srv.hub.db.countByStatus().lobby).toBe(1);
+  });
+
   it("refuses to start games above maxRunningGames (lobbies stay open)", async () => {
     ts = await startTestServer({ limits: { maxRunningGames: 1 } });
     const a = await createGame(ts, { bots: ["easy"], maxPlayers: 2 });

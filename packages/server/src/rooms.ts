@@ -50,7 +50,7 @@ import { checkChatText } from "./chat/filter.ts";
 import type { KeyedLimiter } from "./limits.ts";
 import { DEFAULT_RETENTION, expiryPolicy } from "./retention.ts";
 import type { RetentionConfig } from "./retention.ts";
-import type { Db, ExpiredGame, PurgeResult, StoredLobby, StoredSeat } from "./db.ts";
+import type { Db, ExpiredGame, PurgeResult, SavedGame, StoredLobby, StoredSeat } from "./db.ts";
 import type { DiceRig } from "./test-mode.ts";
 
 export const sha256 = (s: string): string => createHash("sha256").update(s).digest("hex");
@@ -138,6 +138,7 @@ export function toLobbyInfo(lobby: StoredLobby, connected: Set<PlayerId>): Lobby
       // only seats that exist: a stale id must not mute whoever later gets that seat id
       muted: lobby.chat.muted.filter((id) => lobby.seats.some((s) => s.playerId === id)),
     },
+    rematch: lobby.rematch !== undefined,
   };
 }
 
@@ -161,6 +162,9 @@ export class GameRoom {
   }
   /** the game was deleted by the retention sweep: nothing may write it back */
   private expired = false;
+  get isExpired(): boolean {
+    return this.expired;
+  }
   private lastHelloTouch = 0;
   /** when this room saw the game start (memory only; unknown for a game loaded from the database) */
   private startedAt: number | null = null;
@@ -231,6 +235,11 @@ export class GameRoom {
       () => this.db.save(this.lobby, this.state, human ? Date.now() : undefined),
       logFailure,
     );
+  }
+
+  /** What `persist(true)` would write if `lobby` were this room's lobby (nothing is applied); for `Db.saveTogether`. */
+  rowWith(lobby: StoredLobby): SavedGame {
+    return { lobby, state: this.state, activityAt: Date.now() };
   }
 
   private send(ws: WebSocket, msg: ServerMessage): void {
@@ -1002,6 +1011,13 @@ export class Hub {
       .then(() => fn(room))
       .finally(release);
     return { value };
+  }
+
+  /** Puts a lobby that is already in the database (written together with other rows) into memory. */
+  adopt(lobby: StoredLobby): GameRoom {
+    const r = new GameRoom(lobby, null, this.db, this.opts);
+    this.rooms.set(lobby.gameId, r);
+    return r;
   }
 
   add(lobby: StoredLobby): GameRoom {
